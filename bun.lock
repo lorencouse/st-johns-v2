@@ -6,7 +6,15 @@
       "name": "st-johns-v2",
       "dependencies": {
         "@auth/drizzle-adapter": "^1.11.1",
+        "@tiptap/extension-bold": "^3.20.1",
+        "@tiptap/extension-document": "^3.20.1",
+        "@tiptap/extension-hard-break": "^3.20.1",
+        "@tiptap/extension-heading": "^3.20.1",
+        "@tiptap/extension-history": "^3.20.1",
+        "@tiptap/extension-italic": "^3.20.1",
+        "@tiptap/extension-paragraph": "^3.20.1",
         "@tiptap/extension-placeholder": "^3.20.1",
+        "@tiptap/extension-text": "^3.20.1",
         "@tiptap/pm": "^3.20.1",
         "@tiptap/react": "^3.20.1",
         "@tiptap/starter-kit": "^3.20.1",
@@ -340,6 +348,8 @@
     "@tiptap/extension-hard-break": ["@tiptap/extension-hard-break@3.20.1", "", { "peerDependencies": { "@tiptap/core": "^3.20.1" } }, "sha512-9sKpmg/IIdlLXimYWUZ3PplIRcehv4Oc7V1miTqlnAthMzjMqigDkjjgte4JZV67RdnDJTQkRw8TklCAU28Emg=="],
 
     "@tiptap/extension-heading": ["@tiptap/extension-heading@3.20.1", "", { "peerDependencies": { "@tiptap/core": "^3.20.1" } }, "sha512-unudyfQP6FxnyWinxvPqe/51DG91J6AaJm666RnAubgYMCgym+33kBftx4j4A6qf+ddWYbD00thMNKOnVLjAEQ=="],
+
+    "@tiptap/extension-history": ["@tiptap/extension-history@3.20.1", "", { "peerDependencies": { "@tiptap/extensions": "^3.20.1" } }, "sha512-ejETpNSByEZd6CtPIwOtACwG+FiCm0FD5hi/qMA01xWFkEO20B2EyGpc4NfKMQEfjbVOi+QY1QlXjqJXgOEx4w=="],
 
     "@tiptap/extension-horizontal-rule": ["@tiptap/extension-horizontal-rule@3.20.1", "", { "peerDependencies": { "@tiptap/core": "^3.20.1", "@tiptap/pm": "^3.20.1" } }, "sha512-rjFKFXNntdl0jay8oIGFvvykHlpyQTLmrH3Ag2fj3i8yh6MVvqhtaDomYQbw5sxECd5hBkL+T4n2d2DRuVw/QQ=="],
 
