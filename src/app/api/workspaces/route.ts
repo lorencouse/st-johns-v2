@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { workspaces, workspaceMembers } from "@/server/db/schema";
+import {
+  workspaces,
+  workspaceMembers,
+  integrationConnections,
+  appRuns,
+} from "@/server/db/schema";
+import { channelSyncQueue } from "@/server/jobs/queue";
 import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
@@ -50,6 +56,41 @@ export async function POST(req: NextRequest) {
     role: "owner",
     createdByUserId: session.user.id,
   });
+
+  // Auto-connect YouTube: create integration and queue channel sync
+  try {
+    const [connection] = await db
+      .insert(integrationConnections)
+      .values({
+        workspaceId: workspace.id,
+        provider: "youtube",
+        status: "active",
+        grantedByUserId: session.user.id,
+      })
+      .returning();
+
+    const [run] = await db
+      .insert(appRuns)
+      .values({
+        workspaceId: workspace.id,
+        kind: "channel_sync",
+        status: "queued",
+        subjectType: "youtube_channel",
+        triggeredByUserId: session.user.id,
+        inputJson: { channelUrl: null },
+      })
+      .returning();
+
+    await channelSyncQueue.add("sync", {
+      workspaceId: workspace.id,
+      integrationConnectionId: connection.id,
+      userId: session.user.id,
+      runId: run.id,
+    });
+  } catch (err) {
+    // Don't fail workspace creation if YouTube sync fails to queue
+    console.error("[workspace] Failed to auto-connect YouTube:", err);
+  }
 
   return NextResponse.json(workspace, { status: 201 });
 }
