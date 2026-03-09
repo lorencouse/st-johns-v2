@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/server/db";
+import { and, eq } from "drizzle-orm";
 import {
   users,
   accounts,
@@ -30,6 +31,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account: oauthAccount }) {
+      // Update stored tokens/scopes on every sign-in (Auth.js only writes on first sign-in)
+      if (oauthAccount && user.id) {
+        await db
+          .update(accounts)
+          .set({
+            access_token: oauthAccount.access_token,
+            refresh_token: oauthAccount.refresh_token ?? undefined,
+            expires_at: oauthAccount.expires_at,
+            scope: oauthAccount.scope,
+            id_token: oauthAccount.id_token,
+            token_type: oauthAccount.token_type,
+          })
+          .where(
+            and(
+              eq(accounts.provider, oauthAccount.provider),
+              eq(accounts.providerAccountId, oauthAccount.providerAccountId)
+            )
+          );
+      }
+      return true;
+    },
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
