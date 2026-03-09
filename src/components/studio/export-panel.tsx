@@ -1,0 +1,111 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+
+interface ExportArtifact {
+  id: string;
+  format: string;
+  fileName: string;
+  mimeType: string;
+  bodyText: string | null;
+  createdAt: string;
+}
+
+interface ExportPanelProps {
+  workspaceId: string;
+  projectId: string;
+}
+
+export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
+  const [artifacts, setArtifacts] = useState<ExportArtifact[]>([]);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  const fetchArtifacts = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/projects/${projectId}/exports`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setArtifacts(data.artifacts);
+      }
+    } catch {
+      // Silent fail
+    }
+  }, [workspaceId, projectId]);
+
+  useEffect(() => {
+    fetchArtifacts();
+  }, [fetchArtifacts]);
+
+  function handleDownload(artifact: ExportArtifact) {
+    if (!artifact.bodyText) return;
+    const blob = new Blob([artifact.bodyText], { type: artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = artifact.fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const previewArtifact = artifacts.find((a) => a.id === previewId);
+
+  if (artifacts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-xs font-semibold uppercase text-zinc-400">
+        Exports ({artifacts.length})
+      </h3>
+      {artifacts.map((artifact) => (
+        <div
+          key={artifact.id}
+          className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700"
+        >
+          <div>
+            <span className="font-medium">{artifact.fileName}</span>
+            <span className="ml-2 text-xs text-zinc-400">
+              {new Date(artifact.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="flex gap-1">
+            {artifact.bodyText && (
+              <>
+                <button
+                  onClick={() =>
+                    setPreviewId(previewId === artifact.id ? null : artifact.id)
+                  }
+                  className="rounded px-2 py-0.5 text-xs text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  {previewId === artifact.id ? "Close" : "Preview"}
+                </button>
+                <button
+                  onClick={() => handleDownload(artifact)}
+                  className="rounded px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Download
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {previewArtifact?.bodyText && (
+        <div className="mt-2 max-h-96 overflow-auto rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900">
+          {previewArtifact.format === "html" ? (
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: previewArtifact.bodyText }}
+            />
+          ) : (
+            <pre className="whitespace-pre-wrap text-xs font-mono">
+              {previewArtifact.bodyText}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

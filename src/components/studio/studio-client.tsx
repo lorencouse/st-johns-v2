@@ -4,7 +4,10 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TiptapEditor } from "./tiptap-editor";
 import { TranscriptPanel } from "./transcript-panel";
+import { TranscriptIssues } from "./transcript-issues";
 import { RunStatus } from "./run-status";
+import { CommentPanel } from "./comment-panel";
+import { ExportPanel } from "./export-panel";
 
 interface StudioClientProps {
   workspaceId: string;
@@ -13,6 +16,7 @@ interface StudioClientProps {
   projectTitle: string;
   projectStatus: string;
   videoTitle: string;
+  videoId: string;
   providerVideoId: string;
   draft: {
     id: string;
@@ -39,6 +43,7 @@ export function StudioClient({
   projectTitle,
   projectStatus,
   videoTitle,
+  videoId,
   providerVideoId,
   draft,
   transcriptSegments,
@@ -152,10 +157,12 @@ export function StudioClient({
           <h3 className="text-xs font-semibold uppercase text-zinc-400">
             Transcript
           </h3>
-          <div className="mt-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+          <div className="mt-2 max-h-[calc(100vh-500px)] overflow-y-auto">
             <TranscriptPanel segments={transcriptSegments} />
           </div>
         </div>
+
+        <TranscriptIssues workspaceId={workspaceId} videoId={videoId} />
       </div>
 
       {/* Center - editor */}
@@ -303,6 +310,20 @@ export function StudioClient({
             </button>
           </div>
         )}
+
+        {/* Export Artifacts */}
+        <div className="mt-6">
+          <ExportPanel workspaceId={workspaceId} projectId={projectId} />
+        </div>
+
+        {/* Comments */}
+        <div className="mt-6">
+          <CommentPanel
+            workspaceId={workspaceId}
+            projectId={projectId}
+            draftVersionId={draft?.id ?? null}
+          />
+        </div>
       </div>
     </div>
   );

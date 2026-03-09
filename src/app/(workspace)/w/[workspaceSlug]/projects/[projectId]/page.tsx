@@ -115,6 +115,7 @@ export default async function StudioPage({
       projectTitle={result.project.title}
       projectStatus={result.project.status}
       videoTitle={result.videoTitle}
+      videoId={result.videoId}
       providerVideoId={result.providerVideoId}
       draft={draft}
       transcriptSegments={segments}
