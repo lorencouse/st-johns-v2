@@ -15,7 +15,7 @@ export async function getGoogleAccessToken(
 
   if (!account?.access_token) return null;
 
-  if (!account.scope?.includes("youtube.force-ssl")) {
+  if (!account.scope?.includes("youtube.readonly")) {
     return null;
   }
 

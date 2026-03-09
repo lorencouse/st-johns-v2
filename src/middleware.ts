@@ -9,6 +9,8 @@ export default auth((req) => {
   if (
     pathname === "/" ||
     pathname === "/signin" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
     pathname.startsWith("/accept-invite") ||
     pathname.startsWith("/api/auth")
   ) {
