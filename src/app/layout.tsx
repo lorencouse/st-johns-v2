@@ -14,8 +14,22 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ContentFlow",
-  description:
-    "Turn your video library into publishable content",
+  description: "Turn your video library into publishable content",
+  icons: {
+    icon: [
+      { url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    shortcut: "/icons/favicon.ico",
+    apple: [
+      { url: "/icons/apple-icon-180x180.png", sizes: "180x180" },
+      { url: "/icons/apple-icon-152x152.png", sizes: "152x152" },
+      { url: "/icons/apple-icon-144x144.png", sizes: "144x144" },
+      { url: "/icons/apple-icon-120x120.png", sizes: "120x120" },
+    ],
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
