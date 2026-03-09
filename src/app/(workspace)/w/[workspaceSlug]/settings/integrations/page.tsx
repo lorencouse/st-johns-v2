@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { integrationConnections, youtubeChannels } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { ConnectChannelButton } from "@/components/workspace/connect-channel-button";
+import { ReconnectGoogleButton } from "@/components/workspace/reconnect-google-button";
 
 export default async function IntegrationsPage({
   params,
@@ -22,6 +23,15 @@ export default async function IntegrationsPage({
       <h1 className="text-2xl font-bold">Integrations</h1>
 
       <div className="mt-6 space-y-6">
+        <section>
+          <h2 className="text-lg font-semibold">Google Account</h2>
+          <div className="mt-4 max-w-lg">
+            <ReconnectGoogleButton
+              redirectPath={`/w/${workspaceSlug}/settings/integrations`}
+            />
+          </div>
+        </section>
+
         <section>
           <h2 className="text-lg font-semibold">Connect YouTube Channel</h2>
           <div className="mt-4 max-w-md">
