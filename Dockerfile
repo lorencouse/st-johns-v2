@@ -20,11 +20,11 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-RUN adduser --system --uid 1001 nextjs
+RUN useradd --system --uid 1001 --no-create-home nextjs
 
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:bun /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:bun /app/.next/static ./.next/static
+COPY --from=builder --chown=1001:0 /app/.next/standalone ./
+COPY --from=builder --chown=1001:0 /app/.next/static ./.next/static
 
 # Drizzle migrations
 COPY --from=builder /app/drizzle ./drizzle
