@@ -287,79 +287,116 @@ export function parseSrt(srt: string): CaptionSegment[] {
 
 export async function fetchCaptions(
   videoId: string,
-  accessToken: string
+  _accessToken?: string
 ): Promise<CaptionSegment[]> {
-  // 1. List caption tracks
-  const listData = await ytFetchOAuth(
-    "captions",
-    { part: "snippet", videoId },
-    accessToken
+  // Fetch caption track list from YouTube's public timedtext endpoint
+  const listUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const pageRes = await fetch(listUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
+
+  if (!pageRes.ok) {
+    throw new Error(`Failed to fetch YouTube page (${pageRes.status})`);
+  }
+
+  const html = await pageRes.text();
+
+  // Extract caption tracks from the page's player response
+  const captionMatch = html.match(
+    /"captions":\s*(\{"playerCaptionsTracklistRenderer":\{[^}]*"captionTracks":\[.*?\])/
   );
 
-  const items = listData?.items;
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!captionMatch) {
     throw new Error("No caption tracks found for this video");
   }
 
-  // 2. Find best English track
-  const englishCodes = ["en", "en-US", "en-GB"];
-  let captionId: string | null = null;
+  // Parse the caption tracks JSON
+  const tracksMatch = captionMatch[1].match(
+    /"captionTracks":(\[.*?\])/
+  );
 
-  // Prefer manual captions
-  for (const item of items) {
-    const lang = item.snippet?.language;
-    if (englishCodes.includes(lang) && item.snippet?.trackKind !== "ASR") {
-      captionId = item.id;
+  if (!tracksMatch) {
+    throw new Error("Failed to parse caption tracks");
+  }
+
+  let tracks: Array<{
+    baseUrl: string;
+    languageCode: string;
+    kind?: string;
+    name?: { simpleText?: string };
+  }>;
+
+  try {
+    tracks = JSON.parse(tracksMatch[1]);
+  } catch {
+    throw new Error("Failed to parse caption tracks JSON");
+  }
+
+  if (tracks.length === 0) {
+    throw new Error("No caption tracks found for this video");
+  }
+
+  // Find best English track
+  const englishCodes = ["en", "en-US", "en-GB"];
+  let bestTrack: (typeof tracks)[0] | null = null;
+
+  // Prefer manual English captions
+  for (const track of tracks) {
+    if (
+      englishCodes.includes(track.languageCode) &&
+      track.kind !== "asr"
+    ) {
+      bestTrack = track;
       break;
     }
   }
 
-  // Fall back to ASR
-  if (!captionId) {
-    for (const item of items) {
-      const lang = item.snippet?.language;
-      if (englishCodes.includes(lang) && item.snippet?.trackKind === "ASR") {
-        captionId = item.id;
+  // Fall back to ASR English
+  if (!bestTrack) {
+    for (const track of tracks) {
+      if (
+        englishCodes.includes(track.languageCode) &&
+        track.kind === "asr"
+      ) {
+        bestTrack = track;
         break;
       }
     }
   }
 
   // Any English-like
-  if (!captionId) {
-    for (const item of items) {
-      if (item.snippet?.language?.startsWith("en")) {
-        captionId = item.id;
+  if (!bestTrack) {
+    for (const track of tracks) {
+      if (track.languageCode.startsWith("en")) {
+        bestTrack = track;
         break;
       }
     }
   }
 
   // Last resort: first track
-  if (!captionId && items.length > 0) {
-    captionId = items[0].id;
+  if (!bestTrack) {
+    bestTrack = tracks[0];
   }
 
-  if (!captionId) {
-    throw new Error("No suitable caption track found");
-  }
-
-  // 3. Download as SRT
-  const dlRes = await fetch(
-    `${YT_API}/captions/${captionId}?tfmt=srt`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  // Download as SRT (fmt=3 = SRT format)
+  const srtUrl = `${bestTrack.baseUrl}&fmt=3`;
+  const dlRes = await fetch(srtUrl);
 
   if (!dlRes.ok) {
     const body = await dlRes.text();
-    throw new Error(`captions.download failed (${dlRes.status}): ${body}`);
+    throw new Error(`Caption download failed (${dlRes.status}): ${body}`);
   }
 
   const srt = await dlRes.text();
   const segments = parseSrt(srt);
 
   if (segments.length === 0) {
-    throw new Error("Downloaded SRT but parsed 0 segments");
+    throw new Error("Downloaded captions but parsed 0 segments");
   }
 
   return segments;
