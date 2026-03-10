@@ -305,23 +305,29 @@ export async function fetchCaptions(
 
   const html = await pageRes.text();
 
-  // Extract caption tracks from the page's player response
-  const captionMatch = html.match(
-    /"captions":\s*(\{"playerCaptionsTracklistRenderer":\{[^}]*"captionTracks":\[.*?\])/
-  );
-
-  if (!captionMatch) {
+  // Extract captionTracks array from the page's player response
+  const startMarker = '"captionTracks":';
+  const startIdx = html.indexOf(startMarker);
+  if (startIdx === -1) {
     throw new Error("No caption tracks found for this video");
   }
 
-  // Parse the caption tracks JSON
-  const tracksMatch = captionMatch[1].match(
-    /"captionTracks":(\[.*?\])/
-  );
-
-  if (!tracksMatch) {
-    throw new Error("Failed to parse caption tracks");
+  // Find the matching closing bracket for the array
+  const arrayStart = startIdx + startMarker.length;
+  let depth = 0;
+  let arrayEnd = arrayStart;
+  for (let i = arrayStart; i < html.length; i++) {
+    if (html[i] === "[") depth++;
+    else if (html[i] === "]") {
+      depth--;
+      if (depth === 0) {
+        arrayEnd = i + 1;
+        break;
+      }
+    }
   }
+
+  const tracksJson = html.slice(arrayStart, arrayEnd);
 
   let tracks: Array<{
     baseUrl: string;
@@ -331,7 +337,7 @@ export async function fetchCaptions(
   }>;
 
   try {
-    tracks = JSON.parse(tracksMatch[1]);
+    tracks = JSON.parse(tracksJson);
   } catch {
     throw new Error("Failed to parse caption tracks JSON");
   }
