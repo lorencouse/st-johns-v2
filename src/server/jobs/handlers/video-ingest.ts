@@ -9,6 +9,7 @@ import {
 import { eq } from "drizzle-orm";
 import { getGoogleAccessToken } from "@/server/auth/google-token";
 import { fetchCaptions } from "@/server/youtube/api";
+import { transcribeWithWhisper } from "@/server/youtube/transcribe";
 import {
   filterNoise,
   mergeIntoParagraphs,
@@ -32,14 +33,23 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
     .where(eq(appRuns.id, runId));
 
   try {
+    // 1. Try YouTube captions first, fall back to Whisper transcription
+    let segments;
     const accessToken = await getGoogleAccessToken(userId);
-    if (!accessToken) {
-      throw new Error("No valid Google access token. Please re-authenticate.");
+
+    if (accessToken) {
+      try {
+        console.log(`[video-ingest] Trying YouTube captions for ${providerVideoId}`);
+        segments = await fetchCaptions(providerVideoId, accessToken);
+      } catch (captionErr) {
+        console.log(`[video-ingest] YouTube captions failed, falling back to Whisper: ${captionErr instanceof Error ? captionErr.message : captionErr}`);
+      }
     }
 
-    // 1. Fetch captions via OAuth
-    console.log(`[video-ingest] Fetching captions for ${providerVideoId}`);
-    const segments = await fetchCaptions(providerVideoId, accessToken);
+    if (!segments || segments.length === 0) {
+      console.log(`[video-ingest] Transcribing ${providerVideoId} with Whisper`);
+      segments = await transcribeWithWhisper(providerVideoId);
+    }
 
     // 2. Store caption track record
     const [track] = await db

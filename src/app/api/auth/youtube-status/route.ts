@@ -27,7 +27,7 @@ export async function GET() {
   }
 
   const hasYoutubeScope =
-    account.scope?.includes("youtube.force-ssl") ?? false;
+    account.scope?.includes("youtube.readonly") ?? false;
 
   return NextResponse.json({
     connected: true,
