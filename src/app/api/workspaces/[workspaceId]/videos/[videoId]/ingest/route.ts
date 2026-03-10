@@ -43,13 +43,15 @@ export async function POST(
     })
     .returning();
 
-  // Queue job
+  // Queue job — Whisper fallback only for admins/owners
+  const allowWhisperFallback = ["owner", "admin"].includes(ctx.role);
   await videoIngestQueue.add("ingest", {
     workspaceId,
     videoId,
     providerVideoId: video.providerVideoId,
     userId: ctx.userId,
     runId: run.id,
+    allowWhisperFallback,
   });
 
   return NextResponse.json({ runId: run.id }, { status: 202 });

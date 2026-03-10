@@ -22,6 +22,7 @@ export interface VideoIngestPayload {
   providerVideoId: string;
   userId: string;
   runId: string;
+  allowWhisperFallback?: boolean;
 }
 
 export async function handleVideoIngest(payload: VideoIngestPayload) {
@@ -33,7 +34,7 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
     .where(eq(appRuns.id, runId));
 
   try {
-    // 1. Try YouTube captions first, fall back to Whisper transcription
+    // 1. Try YouTube captions first (requires youtube.force-ssl scope)
     let segments;
     const accessToken = await getGoogleAccessToken(userId);
 
@@ -46,7 +47,11 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       }
     }
 
+    // 2. Fall back to Whisper (admin/paid users only)
     if (!segments || segments.length === 0) {
+      if (!payload.allowWhisperFallback) {
+        throw new Error("YouTube captions unavailable and Whisper fallback not enabled for this user");
+      }
       console.log(`[video-ingest] Transcribing ${providerVideoId} with Whisper`);
       segments = await transcribeWithWhisper(providerVideoId);
     }
