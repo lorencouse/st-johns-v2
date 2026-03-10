@@ -49,11 +49,10 @@ export default async function TranscriptReviewPage({
     (r) => r.revisionKind === "raw_caption_import"
   );
 
-  // Best cleaned revision for right pane (prefer human_edited > cleaned > normalized)
+  // For the review page, prefer a previous human edit; otherwise start from raw
+  // so the user sees all segments and can decide what to keep/remove
   const editableRevision =
     revisions.find((r) => r.revisionKind === "human_edited") ||
-    revisions.find((r) => r.revisionKind === "cleaned") ||
-    revisions.find((r) => r.revisionKind === "normalized") ||
     rawRevision;
 
   if (!rawRevision || !editableRevision) {
