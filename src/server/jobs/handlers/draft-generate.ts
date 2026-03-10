@@ -37,7 +37,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
 
     if (!video) throw new Error("Video not found");
 
-    // 2. Get the best available transcript revision (prefer cleaned, fall back to normalized, then raw)
+    // 2. Get the best available transcript revision (prefer human_edited > cleaned > normalized > raw)
     const revisions = await db
       .select()
       .from(transcriptRevisions)
@@ -45,6 +45,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       .orderBy(desc(transcriptRevisions.revisionNumber));
 
     const sourceRevision =
+      revisions.find((r) => r.revisionKind === "human_edited") ||
       revisions.find((r) => r.revisionKind === "cleaned") ||
       revisions.find((r) => r.revisionKind === "normalized") ||
       revisions[0];

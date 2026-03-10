@@ -250,16 +250,29 @@ export interface CaptionSegment {
 
 export function parseSrt(srt: string): CaptionSegment[] {
   const segments: CaptionSegment[] = [];
-  const blocks = srt.trim().split(/\n\s*\n/);
+  // Normalize line endings and split on blank lines
+  const normalized = srt.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const blocks = normalized.trim().split(/\n\n+/);
+
+  const tsRegex =
+    /(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/;
 
   for (const block of blocks) {
     const lines = block.trim().split("\n");
-    if (lines.length < 3) continue;
+    if (lines.length < 2) continue;
 
-    const tsMatch = lines[1].match(
-      /(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/
-    );
-    if (!tsMatch) continue;
+    // Find the timestamp line (may be line 0 or line 1 depending on whether
+    // there's a sequence number)
+    let tsLineIdx = -1;
+    for (let i = 0; i < Math.min(lines.length, 2); i++) {
+      if (tsRegex.test(lines[i])) {
+        tsLineIdx = i;
+        break;
+      }
+    }
+    if (tsLineIdx === -1) continue;
+
+    const tsMatch = lines[tsLineIdx].match(tsRegex)!;
 
     const start =
       parseInt(tsMatch[1]) * 3600 +
@@ -273,7 +286,7 @@ export function parseSrt(srt: string): CaptionSegment[] {
       parseInt(tsMatch[8]) / 1000;
 
     const text = lines
-      .slice(2)
+      .slice(tsLineIdx + 1)
       .join(" ")
       .replace(/<[^>]+>/g, "")
       .trim();
@@ -356,7 +369,10 @@ export async function fetchCaptions(
   }
 
   const srt = await dlRes.text();
+  console.log(`[fetchCaptions] Downloaded SRT: ${srt.length} chars for ${videoId}`);
+
   const segments = parseSrt(srt);
+  console.log(`[fetchCaptions] Parsed ${segments.length} segments, last ends at ${segments.length > 0 ? segments[segments.length - 1].end.toFixed(1) : 0}s`);
 
   if (segments.length === 0) {
     throw new Error("Downloaded SRT but parsed 0 segments");

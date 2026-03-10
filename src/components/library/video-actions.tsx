@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { RunStatus } from "@/components/studio/run-status";
 
 interface VideoActionsProps {
@@ -46,28 +47,6 @@ export function VideoActions({
     }
   }
 
-  async function handleGenerate() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/generate`,
-        { method: "POST" }
-      );
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to start generation");
-        return;
-      }
-      const data = await res.json();
-      setRunId(data.runId);
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   if (runId) {
     return (
       <RunStatus
@@ -93,13 +72,12 @@ export function VideoActions({
       )}
 
       {ingestStatus === "captions_available" && !hasProject && (
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        <Link
+          href={`/w/${workspaceSlug}/library/${videoId}/review`}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
         >
-          {loading ? "..." : "Generate project"}
-        </button>
+          Review transcript
+        </Link>
       )}
 
       {error && <span className="text-xs text-red-500">{error}</span>}

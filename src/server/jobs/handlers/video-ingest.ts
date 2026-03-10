@@ -15,7 +15,6 @@ import {
   mergeIntoParagraphs,
   noAiCleanup,
 } from "@/server/ai/cleanup";
-import { draftGenerateQueue } from "@/server/jobs/queue";
 
 export interface VideoIngestPayload {
   workspaceId: string;
@@ -199,28 +198,8 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       })
       .where(eq(appRuns.id, runId));
 
-    // 8. Auto-create project by queuing draft generation
-    const [draftRun] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId,
-        kind: "draft_generate",
-        status: "queued",
-        subjectType: "source_video",
-        subjectId: videoId,
-        triggeredByUserId: userId,
-      })
-      .returning();
-
-    await draftGenerateQueue.add("generate", {
-      workspaceId,
-      videoId,
-      userId,
-      runId: draftRun.id,
-    });
-
     console.log(
-      `[video-ingest] Completed ${providerVideoId}: ${segments.length} segments -> ${cleanedParagraphs.length} paragraphs. Queued draft generation.`
+      `[video-ingest] Completed ${providerVideoId}: ${segments.length} segments -> ${cleanedParagraphs.length} paragraphs`
     );
   } catch (error) {
     console.error(`[video-ingest] Failed ${providerVideoId}:`, error);

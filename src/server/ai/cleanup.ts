@@ -284,66 +284,96 @@ function parseCleanupResponse(
   return fallback;
 }
 
+// Process a single chunk of segments through AI cleanup
+async function aiCleanupChunk(
+  filtered: CaptionSegment[],
+  fallbackParagraphs: Paragraph[]
+): Promise<{ paragraphs: Paragraph[]; tokensUsed: number | null; inputTokens: number | null; outputTokens: number | null; aiModel: string | null }> {
+  const transcriptText = filtered
+    .map((seg) => `[${formatTimestamp(seg.start)}] ${seg.text}`)
+    .join("\n");
+
+  const openai = getOpenAIClient();
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    messages: [
+      { role: "system", content: CLEANUP_SYSTEM_PROMPT },
+      { role: "user", content: transcriptText },
+    ],
+    temperature: 0.1,
+    max_tokens: 16384,
+    response_format: { type: "json_object" },
+  });
+
+  const tokensUsed = response.usage?.total_tokens ?? null;
+  const inputTokens = response.usage?.prompt_tokens ?? null;
+  const outputTokens = response.usage?.completion_tokens ?? null;
+  const aiModel = response.model ?? MODEL;
+  const content = response.choices[0]?.message?.content;
+
+  if (!content) {
+    return { paragraphs: fallbackParagraphs, tokensUsed, inputTokens, outputTokens, aiModel };
+  }
+
+  let paragraphs = parseCleanupResponse(content, fallbackParagraphs);
+
+  paragraphs = paragraphs.map((p) => ({
+    timestamp: p.timestamp,
+    text: fixPunctuation(removeFillerWords(p.text)),
+  }));
+
+  const final: Paragraph[] = [];
+  for (let i = 0; i < paragraphs.length; i++) {
+    const nextTs =
+      i + 1 < paragraphs.length ? paragraphs[i + 1].timestamp : undefined;
+    final.push(
+      ...splitLongParagraph(paragraphs[i].text, paragraphs[i].timestamp, nextTs)
+    );
+  }
+
+  return { paragraphs: final, tokensUsed, inputTokens, outputTokens, aiModel };
+}
+
+// ~200 segments ≈ ~3K input tokens → leaves plenty of room for 16K output
+const CHUNK_SIZE = 200;
+
 export async function aiCleanup(
   segments: CaptionSegment[]
 ): Promise<CleanupResult> {
   const filtered = filterNoise(segments);
-  const transcriptText = filtered
-    .map((seg) => `[${formatTimestamp(seg.start)}] ${seg.text}`)
-    .join("\n");
   const fallbackParagraphs = mergeIntoParagraphs(filtered);
 
   try {
-    const openai = getOpenAIClient();
-    const response = await openai.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: "system", content: CLEANUP_SYSTEM_PROMPT },
-        { role: "user", content: transcriptText },
-      ],
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-    });
-
-    const tokensUsed = response.usage?.total_tokens ?? null;
-    const inputTokens = response.usage?.prompt_tokens ?? null;
-    const outputTokens = response.usage?.completion_tokens ?? null;
-    const aiModel = response.model ?? MODEL;
-    const content = response.choices[0]?.message?.content;
-
-    if (!content) {
-      return {
-        paragraphs: fallbackParagraphs,
-        tokensUsed,
-        inputTokens,
-        outputTokens,
-        aiModel,
-      };
+    // Split into chunks to avoid output token truncation
+    const chunks: CaptionSegment[][] = [];
+    for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+      chunks.push(filtered.slice(i, i + CHUNK_SIZE));
     }
 
-    let paragraphs = parseCleanupResponse(content, fallbackParagraphs);
+    console.log(`[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`);
 
-    // Regex safety net
-    paragraphs = paragraphs.map((p) => ({
-      timestamp: p.timestamp,
-      text: fixPunctuation(removeFillerWords(p.text)),
-    }));
+    let allParagraphs: Paragraph[] = [];
+    let totalTokensUsed = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let aiModel: string | null = null;
 
-    // Split long paragraphs
-    const final: Paragraph[] = [];
-    for (let i = 0; i < paragraphs.length; i++) {
-      const nextTs =
-        i + 1 < paragraphs.length ? paragraphs[i + 1].timestamp : undefined;
-      final.push(
-        ...splitLongParagraph(paragraphs[i].text, paragraphs[i].timestamp, nextTs)
-      );
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkFallback = mergeIntoParagraphs(chunks[i]);
+      const result = await aiCleanupChunk(chunks[i], chunkFallback);
+      allParagraphs.push(...result.paragraphs);
+      totalTokensUsed += result.tokensUsed ?? 0;
+      totalInputTokens += result.inputTokens ?? 0;
+      totalOutputTokens += result.outputTokens ?? 0;
+      aiModel = result.aiModel;
+      console.log(`[ai-cleanup] Chunk ${i + 1}/${chunks.length}: ${result.paragraphs.length} paragraphs`);
     }
 
     return {
-      paragraphs: interpolateDuplicateTimestamps(final),
-      tokensUsed,
-      inputTokens,
-      outputTokens,
+      paragraphs: interpolateDuplicateTimestamps(allParagraphs),
+      tokensUsed: totalTokensUsed || null,
+      inputTokens: totalInputTokens || null,
+      outputTokens: totalOutputTokens || null,
       aiModel,
     };
   } catch (error) {
