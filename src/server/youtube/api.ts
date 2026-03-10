@@ -287,122 +287,79 @@ export function parseSrt(srt: string): CaptionSegment[] {
 
 export async function fetchCaptions(
   videoId: string,
-  _accessToken?: string
+  accessToken: string
 ): Promise<CaptionSegment[]> {
-  // Fetch caption track list from YouTube's public timedtext endpoint
-  const listUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const pageRes = await fetch(listUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-  });
+  // 1. List caption tracks (requires youtube.force-ssl scope)
+  const listData = await ytFetchOAuth(
+    "captions",
+    { part: "snippet", videoId },
+    accessToken
+  );
 
-  if (!pageRes.ok) {
-    throw new Error(`Failed to fetch YouTube page (${pageRes.status})`);
-  }
-
-  const html = await pageRes.text();
-
-  // Extract captionTracks array from the page's player response
-  const startMarker = '"captionTracks":';
-  const startIdx = html.indexOf(startMarker);
-  if (startIdx === -1) {
+  const items = listData?.items;
+  if (!Array.isArray(items) || items.length === 0) {
     throw new Error("No caption tracks found for this video");
   }
 
-  // Find the matching closing bracket for the array
-  const arrayStart = startIdx + startMarker.length;
-  let depth = 0;
-  let arrayEnd = arrayStart;
-  for (let i = arrayStart; i < html.length; i++) {
-    if (html[i] === "[") depth++;
-    else if (html[i] === "]") {
-      depth--;
-      if (depth === 0) {
-        arrayEnd = i + 1;
-        break;
-      }
-    }
-  }
-
-  const tracksJson = html.slice(arrayStart, arrayEnd);
-
-  let tracks: Array<{
-    baseUrl: string;
-    languageCode: string;
-    kind?: string;
-    name?: { simpleText?: string };
-  }>;
-
-  try {
-    tracks = JSON.parse(tracksJson);
-  } catch {
-    throw new Error("Failed to parse caption tracks JSON");
-  }
-
-  if (tracks.length === 0) {
-    throw new Error("No caption tracks found for this video");
-  }
-
-  // Find best English track
+  // 2. Find best English track
   const englishCodes = ["en", "en-US", "en-GB"];
-  let bestTrack: (typeof tracks)[0] | null = null;
+  let captionId: string | null = null;
 
-  // Prefer manual English captions
-  for (const track of tracks) {
-    if (
-      englishCodes.includes(track.languageCode) &&
-      track.kind !== "asr"
-    ) {
-      bestTrack = track;
+  // Prefer manual captions
+  for (const item of items) {
+    const lang = item.snippet?.language;
+    if (englishCodes.includes(lang) && item.snippet?.trackKind !== "ASR") {
+      captionId = item.id;
       break;
     }
   }
 
-  // Fall back to ASR English
-  if (!bestTrack) {
-    for (const track of tracks) {
-      if (
-        englishCodes.includes(track.languageCode) &&
-        track.kind === "asr"
-      ) {
-        bestTrack = track;
+  // Fall back to ASR
+  if (!captionId) {
+    for (const item of items) {
+      const lang = item.snippet?.language;
+      if (englishCodes.includes(lang) && item.snippet?.trackKind === "ASR") {
+        captionId = item.id;
         break;
       }
     }
   }
 
   // Any English-like
-  if (!bestTrack) {
-    for (const track of tracks) {
-      if (track.languageCode.startsWith("en")) {
-        bestTrack = track;
+  if (!captionId) {
+    for (const item of items) {
+      if (item.snippet?.language?.startsWith("en")) {
+        captionId = item.id;
         break;
       }
     }
   }
 
   // Last resort: first track
-  if (!bestTrack) {
-    bestTrack = tracks[0];
+  if (!captionId && items.length > 0) {
+    captionId = items[0].id;
   }
 
-  // Download as SRT (fmt=3 = SRT format)
-  const srtUrl = `${bestTrack.baseUrl}&fmt=3`;
-  const dlRes = await fetch(srtUrl);
+  if (!captionId) {
+    throw new Error("No suitable caption track found");
+  }
+
+  // 3. Download as SRT
+  const dlRes = await fetch(
+    `${YT_API}/captions/${captionId}?tfmt=srt`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
 
   if (!dlRes.ok) {
     const body = await dlRes.text();
-    throw new Error(`Caption download failed (${dlRes.status}): ${body}`);
+    throw new Error(`captions.download failed (${dlRes.status}): ${body}`);
   }
 
   const srt = await dlRes.text();
   const segments = parseSrt(srt);
 
   if (segments.length === 0) {
-    throw new Error("Downloaded captions but parsed 0 segments");
+    throw new Error("Downloaded SRT but parsed 0 segments");
   }
 
   return segments;
