@@ -22,8 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       authorization: {
         params: {
-          scope:
-            "openid email profile https://www.googleapis.com/auth/youtube.force-ssl",
+          scope: "openid email profile",
           access_type: "offline",
           prompt: "consent",
         },

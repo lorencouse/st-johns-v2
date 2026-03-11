@@ -7,8 +7,8 @@ export default function SignInPage() {
         <div>
           <h1 className="text-2xl font-bold">Sign in</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in with Google to access your YouTube channel and start
-            creating content.
+            Sign in with Google to get started. You can connect your
+            YouTube channel later in Settings.
           </p>
         </div>
         <form

@@ -19,6 +19,7 @@ export function TiptapEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({

@@ -28,6 +28,7 @@ export default async function IntegrationsPage({
           <div className="mt-4 max-w-lg">
             <ReconnectGoogleButton
               redirectPath={`/w/${workspaceSlug}/settings/integrations`}
+              workspaceId={workspace.id}
             />
           </div>
         </section>
