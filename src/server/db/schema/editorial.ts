@@ -43,7 +43,7 @@ export const contentProjects = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    sourceVideoId: uuid("source_video_id")
+    sourceVideoId: text("source_video_id")
       .notNull()
       .references(() => sourceVideos.id, { onDelete: "restrict" }),
     templateId: uuid("template_id").references(() => contentTemplates.id),

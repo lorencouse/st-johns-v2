@@ -20,10 +20,7 @@ import {
 
 export const captionTracks = pgTable("caption_track", {
   id: uuid("id").defaultRandom().primaryKey(),
-  workspaceId: uuid("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
-  videoId: uuid("video_id")
+  videoId: text("video_id")
     .notNull()
     .references(() => sourceVideos.id, { onDelete: "cascade" }),
   providerTrackId: text("provider_track_id"),
@@ -44,7 +41,7 @@ export const transcriptRevisions = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
-    videoId: uuid("video_id")
+    videoId: text("video_id")
       .notNull()
       .references(() => sourceVideos.id, { onDelete: "cascade" }),
     basedOnRevisionId: uuid("based_on_revision_id"),
@@ -62,7 +59,7 @@ export const transcriptRevisions = pgTable(
       .notNull(),
   },
   (t) => [
-    unique().on(t.videoId, t.revisionNumber),
+    unique().on(t.workspaceId, t.videoId, t.revisionNumber),
     index("idx_transcript_revision_video_created").on(
       t.videoId,
       t.createdAt

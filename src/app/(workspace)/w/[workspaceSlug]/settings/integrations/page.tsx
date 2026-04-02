@@ -1,6 +1,6 @@
 import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
-import { integrationConnections, youtubeChannels } from "@/server/db/schema";
+import { youtubeChannels, workspaceChannels } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { ConnectChannelButton } from "@/components/workspace/connect-channel-button";
 import { ReconnectGoogleButton } from "@/components/workspace/reconnect-google-button";
@@ -14,9 +14,20 @@ export default async function IntegrationsPage({
   const { workspace } = await requireWorkspaceMember(workspaceSlug);
 
   const channels = await db
-    .select()
-    .from(youtubeChannels)
-    .where(eq(youtubeChannels.workspaceId, workspace.id));
+    .select({
+      id: youtubeChannels.id,
+      title: youtubeChannels.title,
+      handle: youtubeChannels.handle,
+      thumbnailUrl: youtubeChannels.thumbnailUrl,
+      syncStatus: workspaceChannels.syncStatus,
+      lastSyncedAt: workspaceChannels.lastSyncedAt,
+    })
+    .from(workspaceChannels)
+    .innerJoin(
+      youtubeChannels,
+      eq(youtubeChannels.id, workspaceChannels.channelId)
+    )
+    .where(eq(workspaceChannels.workspaceId, workspace.id));
 
   return (
     <div className="p-6">

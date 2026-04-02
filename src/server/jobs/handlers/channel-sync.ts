@@ -4,7 +4,9 @@ import {
   youtubePlaylists,
   sourceVideos,
   playlistVideos,
-  integrationConnections,
+  workspaceChannels,
+  workspaceVideos,
+  workspacePlaylists,
   appRuns,
 } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -47,35 +49,48 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       ? await resolveChannel(channelUrl, accessToken)
       : await fetchMyChannel(accessToken);
 
-    // 2. Upsert channel
-    const [channel] = await db
+    // 2. Upsert global channel record
+    await db
       .insert(youtubeChannels)
       .values({
-        workspaceId,
-        integrationConnectionId,
-        providerChannelId: channelInfo.youtubeId,
+        id: channelInfo.youtubeId,
         title: channelInfo.title,
         description: channelInfo.description,
         handle: channelInfo.handle,
         thumbnailUrl: channelInfo.thumbnailUrl,
         uploadsPlaylistProviderId: channelInfo.uploadsPlaylistId,
-        syncStatus: "syncing",
       })
       .onConflictDoUpdate({
-        target: [youtubeChannels.workspaceId, youtubeChannels.providerChannelId],
+        target: youtubeChannels.id,
         set: {
           title: channelInfo.title,
           description: channelInfo.description,
           handle: channelInfo.handle,
           thumbnailUrl: channelInfo.thumbnailUrl,
           uploadsPlaylistProviderId: channelInfo.uploadsPlaylistId,
-          syncStatus: "syncing",
           updatedAt: new Date(),
         },
-      })
-      .returning();
+      });
 
-    // 3. Fetch and upsert playlists
+    // 3. Upsert workspace ↔ channel junction
+    await db
+      .insert(workspaceChannels)
+      .values({
+        workspaceId,
+        channelId: channelInfo.youtubeId,
+        integrationConnectionId,
+        syncStatus: "syncing",
+        addedByUserId: userId,
+      })
+      .onConflictDoUpdate({
+        target: [workspaceChannels.workspaceId, workspaceChannels.channelId],
+        set: {
+          integrationConnectionId,
+          syncStatus: "syncing",
+        },
+      });
+
+    // 4. Fetch and upsert playlists
     console.log(`[channel-sync] Fetching playlists for ${channelInfo.title}`);
     const playlists = await fetchChannelPlaylists(
       channelInfo.youtubeId,
@@ -100,12 +115,13 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
 
     for (const pl of playlists) {
       const isUploads = pl.youtubeId === channelInfo.uploadsPlaylistId;
+
+      // Upsert global playlist
       await db
         .insert(youtubePlaylists)
         .values({
-          workspaceId,
-          channelId: channel.id,
-          providerPlaylistId: pl.youtubeId,
+          id: pl.youtubeId,
+          channelId: channelInfo.youtubeId,
           kind: isUploads ? "uploads" : "standard",
           title: pl.title,
           description: pl.description,
@@ -113,10 +129,7 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
           thumbnailUrl: pl.thumbnailUrl,
         })
         .onConflictDoUpdate({
-          target: [
-            youtubePlaylists.workspaceId,
-            youtubePlaylists.providerPlaylistId,
-          ],
+          target: youtubePlaylists.id,
           set: {
             title: pl.title,
             description: pl.description,
@@ -125,9 +138,19 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
             updatedAt: new Date(),
           },
         });
+
+      // Upsert workspace ↔ playlist junction
+      await db
+        .insert(workspacePlaylists)
+        .values({
+          workspaceId,
+          playlistId: pl.youtubeId,
+          addedByUserId: userId,
+        })
+        .onConflictDoNothing();
     }
 
-    // 4. Fetch videos from uploads playlist
+    // 5. Fetch videos from uploads playlist
     if (channelInfo.uploadsPlaylistId) {
       console.log(`[channel-sync] Fetching videos from uploads playlist`);
       const videos = await fetchPlaylistVideos(
@@ -139,29 +162,15 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       const videoIds = videos.map((v) => v.youtubeId);
       const details = await fetchVideoDetails(videoIds, accessToken);
 
-      // Get the uploads playlist DB record
-      const [uploadsPlaylist] = await db
-        .select()
-        .from(youtubePlaylists)
-        .where(
-          and(
-            eq(youtubePlaylists.workspaceId, workspaceId),
-            eq(
-              youtubePlaylists.providerPlaylistId,
-              channelInfo.uploadsPlaylistId
-            )
-          )
-        )
-        .limit(1);
-
       for (const video of videos) {
         const detail = details.get(video.youtubeId);
-        const [upsertedVideo] = await db
+
+        // Upsert global video
+        await db
           .insert(sourceVideos)
           .values({
-            workspaceId,
-            channelId: channel.id,
-            providerVideoId: video.youtubeId,
+            id: video.youtubeId,
+            channelId: channelInfo.youtubeId,
             title: video.title,
             description: detail?.description ?? video.description,
             thumbnailUrl: video.thumbnailUrl,
@@ -171,11 +180,10 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
                 ? new Date(video.publishedAt)
                 : null,
             durationSeconds: detail?.durationSeconds ?? null,
-            ingestStatus: "metadata_synced",
             lastMetadataSyncedAt: new Date(),
           })
           .onConflictDoUpdate({
-            target: [sourceVideos.workspaceId, sourceVideos.providerVideoId],
+            target: sourceVideos.id,
             set: {
               title: video.title,
               description: detail?.description ?? video.description,
@@ -187,20 +195,33 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
               lastMetadataSyncedAt: new Date(),
               updatedAt: new Date(),
             },
+          });
+
+        // Upsert workspace ↔ video junction
+        await db
+          .insert(workspaceVideos)
+          .values({
+            workspaceId,
+            videoId: video.youtubeId,
+            ingestStatus: "metadata_synced",
+            addedByUserId: userId,
           })
-          .returning();
+          .onConflictDoUpdate({
+            target: [workspaceVideos.workspaceId, workspaceVideos.videoId],
+            set: {
+              // Don't overwrite ingestStatus if already further along
+            },
+          });
 
         // Link video to uploads playlist
-        if (uploadsPlaylist) {
-          await db
-            .insert(playlistVideos)
-            .values({
-              playlistId: uploadsPlaylist.id,
-              videoId: upsertedVideo.id,
-              position: video.position,
-            })
-            .onConflictDoNothing();
-        }
+        await db
+          .insert(playlistVideos)
+          .values({
+            playlistId: channelInfo.uploadsPlaylistId,
+            videoId: video.youtubeId,
+            position: video.position,
+          })
+          .onConflictDoNothing();
       }
 
       console.log(
@@ -208,20 +229,25 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       );
     }
 
-    // 5. Mark channel as synced
+    // 6. Mark channel as synced (on junction table)
     await db
-      .update(youtubeChannels)
-      .set({ syncStatus: "ok", lastSyncedAt: new Date(), updatedAt: new Date() })
-      .where(eq(youtubeChannels.id, channel.id));
+      .update(workspaceChannels)
+      .set({ syncStatus: "ok", lastSyncedAt: new Date() })
+      .where(
+        and(
+          eq(workspaceChannels.workspaceId, workspaceId),
+          eq(workspaceChannels.channelId, channelInfo.youtubeId)
+        )
+      );
 
-    // 6. Mark run as succeeded
+    // 7. Mark run as succeeded
     await db
       .update(appRuns)
       .set({
         status: "succeeded",
         finishedAt: new Date(),
         outputJson: {
-          channelId: channel.id,
+          channelId: channelInfo.youtubeId,
           channelTitle: channelInfo.title,
           playlistCount: playlists.length,
         },

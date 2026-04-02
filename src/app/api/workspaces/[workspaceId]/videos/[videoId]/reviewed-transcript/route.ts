@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
-  sourceVideos,
+  workspaceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
@@ -23,19 +23,19 @@ export async function POST(
     );
   }
 
-  // Verify video belongs to workspace
-  const [video] = await db
+  // Verify video belongs to workspace via junction table
+  const [wsVideo] = await db
     .select()
-    .from(sourceVideos)
+    .from(workspaceVideos)
     .where(
       and(
-        eq(sourceVideos.id, videoId),
-        eq(sourceVideos.workspaceId, workspaceId)
+        eq(workspaceVideos.workspaceId, workspaceId),
+        eq(workspaceVideos.videoId, videoId)
       )
     )
     .limit(1);
 
-  if (!video) {
+  if (!wsVideo) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
@@ -54,11 +54,16 @@ export async function POST(
     );
   }
 
-  // Get next revision number
+  // Get next revision number (scoped to workspace + video)
   const [latestRevision] = await db
     .select({ revisionNumber: transcriptRevisions.revisionNumber })
     .from(transcriptRevisions)
-    .where(eq(transcriptRevisions.videoId, videoId))
+    .where(
+      and(
+        eq(transcriptRevisions.videoId, videoId),
+        eq(transcriptRevisions.workspaceId, workspaceId)
+      )
+    )
     .orderBy(desc(transcriptRevisions.revisionNumber))
     .limit(1);
 

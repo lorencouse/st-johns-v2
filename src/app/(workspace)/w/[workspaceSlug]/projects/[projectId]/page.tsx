@@ -24,7 +24,6 @@ export default async function StudioPage({
     .select({
       project: contentProjects,
       videoTitle: sourceVideos.title,
-      providerVideoId: sourceVideos.providerVideoId,
       videoId: sourceVideos.id,
     })
     .from(contentProjects)
@@ -77,7 +76,12 @@ export default async function StudioPage({
   const revisions = await db
     .select()
     .from(transcriptRevisions)
-    .where(eq(transcriptRevisions.videoId, result.videoId))
+    .where(
+      and(
+        eq(transcriptRevisions.videoId, result.videoId),
+        eq(transcriptRevisions.workspaceId, workspace.id)
+      )
+    )
     .orderBy(desc(transcriptRevisions.revisionNumber));
 
   const sourceRevision =
@@ -117,7 +121,7 @@ export default async function StudioPage({
       projectStatus={result.project.status}
       videoTitle={result.videoTitle}
       videoId={result.videoId}
-      providerVideoId={result.providerVideoId}
+      providerVideoId={result.videoId}
       draft={draft}
       transcriptSegments={segments}
       userRole={role}

@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import {
   transcriptIssues,
   transcriptRevisions,
-  sourceVideos,
+  workspaceVideos,
   users,
 } from "@/server/db/schema";
 import { and, eq, desc } from "drizzle-orm";
@@ -58,32 +58,37 @@ export async function POST(
     );
   }
 
-  // Verify video belongs to workspace
-  const [video] = await db
+  // Verify video belongs to workspace via junction table
+  const [wsVideo] = await db
     .select()
-    .from(sourceVideos)
+    .from(workspaceVideos)
     .where(
       and(
-        eq(sourceVideos.id, videoId),
-        eq(sourceVideos.workspaceId, workspaceId)
+        eq(workspaceVideos.workspaceId, workspaceId),
+        eq(workspaceVideos.videoId, videoId)
       )
     )
     .limit(1);
 
-  if (!video) {
+  if (!wsVideo) {
     return NextResponse.json(
       { error: "Video not found" },
       { status: 404 }
     );
   }
 
-  // Use provided revisionId or find the latest revision
+  // Use provided revisionId or find the latest revision for this workspace
   let targetRevisionId = revisionId;
   if (!targetRevisionId) {
     const [latestRevision] = await db
       .select({ id: transcriptRevisions.id })
       .from(transcriptRevisions)
-      .where(eq(transcriptRevisions.videoId, videoId))
+      .where(
+        and(
+          eq(transcriptRevisions.videoId, videoId),
+          eq(transcriptRevisions.workspaceId, workspaceId)
+        )
+      )
       .orderBy(desc(transcriptRevisions.revisionNumber))
       .limit(1);
 

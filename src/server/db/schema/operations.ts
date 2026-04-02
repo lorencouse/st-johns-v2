@@ -60,7 +60,7 @@ export const appRuns = pgTable(
     kind: runKindEnum("kind").notNull(),
     status: runStatusEnum("status").notNull().default("queued"),
     subjectType: text("subject_type").notNull(),
-    subjectId: uuid("subject_id"),
+    subjectId: text("subject_id"),
     idempotencyKey: text("idempotency_key"),
     triggeredByUserId: uuid("triggered_by_user_id").references(() => users.id),
     inputJson: jsonb("input_json").notNull().default({}),
@@ -112,7 +112,7 @@ export const auditEvents = pgTable(
     actorUserId: uuid("actor_user_id").references(() => users.id),
     eventKey: text("event_key").notNull(),
     entityType: text("entity_type").notNull(),
-    entityId: uuid("entity_id"),
+    entityId: text("entity_id"),
     summary: text("summary"),
     payloadJson: jsonb("payload_json").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true })

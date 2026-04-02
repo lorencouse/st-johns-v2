@@ -13,9 +13,9 @@ interface VideoRowProps {
     title: string;
     thumbnailUrl: string | null;
     publishedAt: Date | null;
-    ingestStatus: string;
   };
   channelTitle: string | null;
+  ingestStatus: string;
   project: { id: string; status: string } | null;
 }
 
@@ -24,6 +24,7 @@ export function VideoRow({
   workspaceSlug,
   video,
   channelTitle,
+  ingestStatus,
   project,
 }: VideoRowProps) {
   const router = useRouter();
@@ -39,7 +40,7 @@ export function VideoRow({
     }
 
     // If captions are available, go to review
-    if (video.ingestStatus === "captions_available") {
+    if (ingestStatus === "captions_available") {
       router.push(`/w/${workspaceSlug}/library/${video.id}/review`);
       return;
     }
@@ -105,7 +106,7 @@ export function VideoRow({
           </span>
         ) : (
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-            {video.ingestStatus.replace("_", " ")}
+            {ingestStatus.replace("_", " ")}
           </span>
         )}
       </td>

@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import {
   integrationConnections,
   youtubeChannels,
+  workspaceChannels,
   appRuns,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
@@ -77,9 +78,21 @@ export async function GET(
   if ("error" in ctx) return ctx.error;
 
   const channels = await db
-    .select()
-    .from(youtubeChannels)
-    .where(eq(youtubeChannels.workspaceId, workspaceId));
+    .select({
+      id: youtubeChannels.id,
+      title: youtubeChannels.title,
+      handle: youtubeChannels.handle,
+      description: youtubeChannels.description,
+      thumbnailUrl: youtubeChannels.thumbnailUrl,
+      syncStatus: workspaceChannels.syncStatus,
+      lastSyncedAt: workspaceChannels.lastSyncedAt,
+    })
+    .from(workspaceChannels)
+    .innerJoin(
+      youtubeChannels,
+      eq(youtubeChannels.id, workspaceChannels.channelId)
+    )
+    .where(eq(workspaceChannels.workspaceId, workspaceId));
 
   return NextResponse.json(channels);
 }

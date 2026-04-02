@@ -2,6 +2,7 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import {
   sourceVideos,
+  workspaceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
@@ -21,27 +22,43 @@ export default async function TranscriptReviewPage({
     notFound();
   }
 
-  // Load video
-  const [video] = await db
+  // Verify video belongs to workspace via junction table
+  const [wsVideo] = await db
     .select()
-    .from(sourceVideos)
+    .from(workspaceVideos)
     .where(
       and(
-        eq(sourceVideos.id, videoId),
-        eq(sourceVideos.workspaceId, workspace.id)
+        eq(workspaceVideos.workspaceId, workspace.id),
+        eq(workspaceVideos.videoId, videoId)
       )
     )
     .limit(1);
 
-  if (!video || video.ingestStatus !== "captions_available") {
+  if (!wsVideo || wsVideo.ingestStatus !== "captions_available") {
     notFound();
   }
 
-  // Load all revisions for this video
+  // Load video metadata
+  const [video] = await db
+    .select()
+    .from(sourceVideos)
+    .where(eq(sourceVideos.id, videoId))
+    .limit(1);
+
+  if (!video) {
+    notFound();
+  }
+
+  // Load all revisions for this video in this workspace
   const revisions = await db
     .select()
     .from(transcriptRevisions)
-    .where(eq(transcriptRevisions.videoId, videoId))
+    .where(
+      and(
+        eq(transcriptRevisions.videoId, videoId),
+        eq(transcriptRevisions.workspaceId, workspace.id)
+      )
+    )
     .orderBy(desc(transcriptRevisions.revisionNumber));
 
   // Raw segments (for left pane)
@@ -88,7 +105,7 @@ export default async function TranscriptReviewPage({
       workspaceSlug={workspaceSlug}
       videoId={videoId}
       videoTitle={video.title}
-      providerVideoId={video.providerVideoId}
+      providerVideoId={videoId}
       rawSegments={rawSegments}
       editableSegments={editableSegments}
     />

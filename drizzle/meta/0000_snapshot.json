@@ -1,5 +1,5 @@
 {
-  "id": "5b1e7ecc-24d9-4c05-9609-ba8ed7820e2a",
+  "id": "9b888c3e-b42d-4fdf-9ed8-7856fe00c096",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -719,13 +719,13 @@
       "columns": {
         "playlist_id": {
           "name": "playlist_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "video_id": {
           "name": "video_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -788,7 +788,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "playlist_video_playlist_id_video_id_pk": {
+          "name": "playlist_video_playlist_id_video_id_pk",
+          "columns": [
+            "playlist_id",
+            "video_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -800,25 +808,12 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
           "notNull": true
         },
         "channel_id": {
           "name": "channel_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider_video_id": {
-          "name": "provider_video_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -859,22 +854,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "ingest_status": {
-          "name": "ingest_status",
-          "type": "video_ingest_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'discovered'"
-        },
         "last_metadata_synced_at": {
           "name": "last_metadata_synced_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_captions_checked_at": {
-          "name": "last_captions_checked_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -902,27 +883,6 @@
         }
       },
       "indexes": {
-        "idx_source_video_workspace_published": {
-          "name": "idx_source_video_workspace_published",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "published_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "idx_source_video_channel": {
           "name": "idx_source_video_channel",
           "columns": [
@@ -937,22 +897,24 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_source_video_published": {
+          "name": "idx_source_video_published",
+          "columns": [
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
-        "source_video_workspace_id_workspace_id_fk": {
-          "name": "source_video_workspace_id_workspace_id_fk",
-          "tableFrom": "source_video",
-          "tableTo": "workspace",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "source_video_channel_id_youtube_channel_id_fk": {
           "name": "source_video_channel_id_youtube_channel_id_fk",
           "tableFrom": "source_video",
@@ -968,16 +930,356 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "source_video_workspace_id_provider_video_id_unique": {
-          "name": "source_video_workspace_id_provider_video_id_unique",
-          "nullsNotDistinct": false,
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.workspace_channel": {
+      "name": "workspace_channel",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "integration_connection_id": {
+          "name": "integration_connection_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "channel_sync_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'idle'"
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "added_by_user_id": {
+          "name": "added_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_workspace_channel_sync": {
+          "name": "idx_workspace_channel_sync",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sync_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "workspace_channel_workspace_id_workspace_id_fk": {
+          "name": "workspace_channel_workspace_id_workspace_id_fk",
+          "tableFrom": "workspace_channel",
+          "tableTo": "workspace",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_channel_channel_id_youtube_channel_id_fk": {
+          "name": "workspace_channel_channel_id_youtube_channel_id_fk",
+          "tableFrom": "workspace_channel",
+          "tableTo": "youtube_channel",
+          "columnsFrom": [
+            "channel_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_channel_integration_connection_id_integration_connection_id_fk": {
+          "name": "workspace_channel_integration_connection_id_integration_connection_id_fk",
+          "tableFrom": "workspace_channel",
+          "tableTo": "integration_connection",
+          "columnsFrom": [
+            "integration_connection_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "workspace_channel_added_by_user_id_user_id_fk": {
+          "name": "workspace_channel_added_by_user_id_user_id_fk",
+          "tableFrom": "workspace_channel",
+          "tableTo": "user",
+          "columnsFrom": [
+            "added_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspace_channel_workspace_id_channel_id_pk": {
+          "name": "workspace_channel_workspace_id_channel_id_pk",
           "columns": [
             "workspace_id",
-            "provider_video_id"
+            "channel_id"
           ]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.workspace_playlist": {
+      "name": "workspace_playlist",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "playlist_id": {
+          "name": "playlist_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "added_by_user_id": {
+          "name": "added_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "workspace_playlist_workspace_id_workspace_id_fk": {
+          "name": "workspace_playlist_workspace_id_workspace_id_fk",
+          "tableFrom": "workspace_playlist",
+          "tableTo": "workspace",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_playlist_playlist_id_youtube_playlist_id_fk": {
+          "name": "workspace_playlist_playlist_id_youtube_playlist_id_fk",
+          "tableFrom": "workspace_playlist",
+          "tableTo": "youtube_playlist",
+          "columnsFrom": [
+            "playlist_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_playlist_added_by_user_id_user_id_fk": {
+          "name": "workspace_playlist_added_by_user_id_user_id_fk",
+          "tableFrom": "workspace_playlist",
+          "tableTo": "user",
+          "columnsFrom": [
+            "added_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspace_playlist_workspace_id_playlist_id_pk": {
+          "name": "workspace_playlist_workspace_id_playlist_id_pk",
+          "columns": [
+            "workspace_id",
+            "playlist_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.workspace_video": {
+      "name": "workspace_video",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ingest_status": {
+          "name": "ingest_status",
+          "type": "video_ingest_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'discovered'"
+        },
+        "last_captions_checked_at": {
+          "name": "last_captions_checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "added_by_user_id": {
+          "name": "added_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_workspace_video_status": {
+          "name": "idx_workspace_video_status",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ingest_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "workspace_video_workspace_id_workspace_id_fk": {
+          "name": "workspace_video_workspace_id_workspace_id_fk",
+          "tableFrom": "workspace_video",
+          "tableTo": "workspace",
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_video_video_id_source_video_id_fk": {
+          "name": "workspace_video_video_id_source_video_id_fk",
+          "tableFrom": "workspace_video",
+          "tableTo": "source_video",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "workspace_video_added_by_user_id_user_id_fk": {
+          "name": "workspace_video_added_by_user_id_user_id_fk",
+          "tableFrom": "workspace_video",
+          "tableTo": "user",
+          "columnsFrom": [
+            "added_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "workspace_video_workspace_id_video_id_pk": {
+          "name": "workspace_video_workspace_id_video_id_pk",
+          "columns": [
+            "workspace_id",
+            "video_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -988,27 +1290,8 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "integration_connection_id": {
-          "name": "integration_connection_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider_channel_id": {
-          "name": "provider_channel_id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "handle": {
@@ -1041,20 +1324,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "sync_status": {
-          "name": "sync_status",
-          "type": "channel_sync_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'idle'"
-        },
-        "last_synced_at": {
-          "name": "last_synced_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "provider_payload_json": {
           "name": "provider_payload_json",
           "type": "jsonb",
@@ -1077,68 +1346,10 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "idx_youtube_channel_workspace_sync": {
-          "name": "idx_youtube_channel_workspace_sync",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sync_status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "youtube_channel_workspace_id_workspace_id_fk": {
-          "name": "youtube_channel_workspace_id_workspace_id_fk",
-          "tableFrom": "youtube_channel",
-          "tableTo": "workspace",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "youtube_channel_integration_connection_id_integration_connection_id_fk": {
-          "name": "youtube_channel_integration_connection_id_integration_connection_id_fk",
-          "tableFrom": "youtube_channel",
-          "tableTo": "integration_connection",
-          "columnsFrom": [
-            "integration_connection_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "youtube_channel_workspace_id_provider_channel_id_unique": {
-          "name": "youtube_channel_workspace_id_provider_channel_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "provider_channel_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1149,25 +1360,12 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
           "notNull": true
         },
         "channel_id": {
           "name": "channel_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider_playlist_id": {
-          "name": "provider_playlist_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1202,12 +1400,6 @@
         "thumbnail_url": {
           "name": "thumbnail_url",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_synced_at": {
-          "name": "last_synced_at",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1251,19 +1443,6 @@
         }
       },
       "foreignKeys": {
-        "youtube_playlist_workspace_id_workspace_id_fk": {
-          "name": "youtube_playlist_workspace_id_workspace_id_fk",
-          "tableFrom": "youtube_playlist",
-          "tableTo": "workspace",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "youtube_playlist_channel_id_youtube_channel_id_fk": {
           "name": "youtube_playlist_channel_id_youtube_channel_id_fk",
           "tableFrom": "youtube_playlist",
@@ -1279,16 +1458,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "youtube_playlist_workspace_id_provider_playlist_id_unique": {
-          "name": "youtube_playlist_workspace_id_provider_playlist_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "provider_playlist_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1304,15 +1474,9 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "video_id": {
           "name": "video_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1366,19 +1530,6 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "caption_track_workspace_id_workspace_id_fk": {
-          "name": "caption_track_workspace_id_workspace_id_fk",
-          "tableFrom": "caption_track",
-          "tableTo": "workspace",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "caption_track_video_id_source_video_id_fk": {
           "name": "caption_track_video_id_source_video_id_fk",
           "tableFrom": "caption_track",
@@ -1559,7 +1710,7 @@
         },
         "video_id": {
           "name": "video_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1714,10 +1865,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "transcript_revision_video_id_revision_number_unique": {
-          "name": "transcript_revision_video_id_revision_number_unique",
+        "transcript_revision_workspace_id_video_id_revision_number_unique": {
+          "name": "transcript_revision_workspace_id_video_id_revision_number_unique",
           "nullsNotDistinct": false,
           "columns": [
+            "workspace_id",
             "video_id",
             "revision_number"
           ]
@@ -1864,7 +2016,7 @@
         },
         "source_video_id": {
           "name": "source_video_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -2879,7 +3031,7 @@
         },
         "subject_id": {
           "name": "subject_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -3072,7 +3224,7 @@
         },
         "entity_id": {
           "name": "entity_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { db } from "@/server/db";
-import { sourceVideos, appRuns } from "@/server/db/schema";
+import { workspaceVideos, appRuns } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { videoIngestQueue } from "@/server/jobs/queue";
 
@@ -17,16 +17,19 @@ export async function POST(
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
-  // Verify video belongs to workspace
-  const [video] = await db
+  // Verify video belongs to workspace via junction table
+  const [wsVideo] = await db
     .select()
-    .from(sourceVideos)
+    .from(workspaceVideos)
     .where(
-      and(eq(sourceVideos.id, videoId), eq(sourceVideos.workspaceId, workspaceId))
+      and(
+        eq(workspaceVideos.workspaceId, workspaceId),
+        eq(workspaceVideos.videoId, videoId)
+      )
     )
     .limit(1);
 
-  if (!video) {
+  if (!wsVideo) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
@@ -48,7 +51,6 @@ export async function POST(
   await videoIngestQueue.add("ingest", {
     workspaceId,
     videoId,
-    providerVideoId: video.providerVideoId,
     userId: ctx.userId,
     runId: run.id,
     allowWhisperFallback,

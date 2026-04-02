@@ -108,71 +108,85 @@ CREATE TABLE "integration_connection" (
 );
 --> statement-breakpoint
 CREATE TABLE "playlist_video" (
-	"playlist_id" uuid NOT NULL,
-	"video_id" uuid NOT NULL,
+	"playlist_id" text NOT NULL,
+	"video_id" text NOT NULL,
 	"position" integer NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "playlist_video_playlist_id_video_id_pk" PRIMARY KEY("playlist_id","video_id")
 );
 --> statement-breakpoint
 CREATE TABLE "source_video" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
-	"channel_id" uuid NOT NULL,
-	"provider_video_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"channel_id" text NOT NULL,
 	"title" text NOT NULL,
 	"description" text,
 	"published_at" timestamp with time zone,
 	"duration_seconds" integer,
 	"thumbnail_url" text,
 	"default_language" text,
-	"ingest_status" "video_ingest_status" DEFAULT 'discovered' NOT NULL,
 	"last_metadata_synced_at" timestamp with time zone,
-	"last_captions_checked_at" timestamp with time zone,
 	"provider_payload_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "source_video_workspace_id_provider_video_id_unique" UNIQUE("workspace_id","provider_video_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_channel" (
+	"workspace_id" uuid NOT NULL,
+	"channel_id" text NOT NULL,
+	"integration_connection_id" uuid NOT NULL,
+	"sync_status" "channel_sync_status" DEFAULT 'idle' NOT NULL,
+	"last_synced_at" timestamp with time zone,
+	"added_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"added_by_user_id" uuid,
+	CONSTRAINT "workspace_channel_workspace_id_channel_id_pk" PRIMARY KEY("workspace_id","channel_id")
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_playlist" (
+	"workspace_id" uuid NOT NULL,
+	"playlist_id" text NOT NULL,
+	"added_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"added_by_user_id" uuid,
+	CONSTRAINT "workspace_playlist_workspace_id_playlist_id_pk" PRIMARY KEY("workspace_id","playlist_id")
+);
+--> statement-breakpoint
+CREATE TABLE "workspace_video" (
+	"workspace_id" uuid NOT NULL,
+	"video_id" text NOT NULL,
+	"ingest_status" "video_ingest_status" DEFAULT 'discovered' NOT NULL,
+	"last_captions_checked_at" timestamp with time zone,
+	"added_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"added_by_user_id" uuid,
+	CONSTRAINT "workspace_video_workspace_id_video_id_pk" PRIMARY KEY("workspace_id","video_id")
 );
 --> statement-breakpoint
 CREATE TABLE "youtube_channel" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
-	"integration_connection_id" uuid NOT NULL,
-	"provider_channel_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	"handle" text,
 	"title" text NOT NULL,
 	"description" text,
 	"thumbnail_url" text,
 	"uploads_playlist_provider_id" text,
-	"sync_status" "channel_sync_status" DEFAULT 'idle' NOT NULL,
-	"last_synced_at" timestamp with time zone,
 	"provider_payload_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "youtube_channel_workspace_id_provider_channel_id_unique" UNIQUE("workspace_id","provider_channel_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "youtube_playlist" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
-	"channel_id" uuid NOT NULL,
-	"provider_playlist_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"channel_id" text NOT NULL,
 	"kind" "playlist_kind" DEFAULT 'standard' NOT NULL,
 	"title" text NOT NULL,
 	"description" text,
 	"item_count" integer DEFAULT 0 NOT NULL,
 	"thumbnail_url" text,
-	"last_synced_at" timestamp with time zone,
 	"provider_payload_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "youtube_playlist_workspace_id_provider_playlist_id_unique" UNIQUE("workspace_id","provider_playlist_id")
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "caption_track" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"workspace_id" uuid NOT NULL,
-	"video_id" uuid NOT NULL,
+	"video_id" text NOT NULL,
 	"provider_track_id" text,
 	"language_code" text NOT NULL,
 	"kind" "caption_track_kind" DEFAULT 'unknown' NOT NULL,
@@ -200,7 +214,7 @@ CREATE TABLE "transcript_issue" (
 CREATE TABLE "transcript_revision" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
-	"video_id" uuid NOT NULL,
+	"video_id" text NOT NULL,
 	"based_on_revision_id" uuid,
 	"source_track_id" uuid,
 	"revision_kind" "transcript_revision_kind" NOT NULL,
@@ -212,7 +226,7 @@ CREATE TABLE "transcript_revision" (
 	"blob_key" text,
 	"created_by_user_id" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "transcript_revision_video_id_revision_number_unique" UNIQUE("video_id","revision_number")
+	CONSTRAINT "transcript_revision_workspace_id_video_id_revision_number_unique" UNIQUE("workspace_id","video_id","revision_number")
 );
 --> statement-breakpoint
 CREATE TABLE "transcript_segment" (
@@ -230,7 +244,7 @@ CREATE TABLE "transcript_segment" (
 CREATE TABLE "content_project" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
-	"source_video_id" uuid NOT NULL,
+	"source_video_id" text NOT NULL,
 	"template_id" uuid,
 	"title" text NOT NULL,
 	"status" "project_status" DEFAULT 'drafting' NOT NULL,
@@ -327,7 +341,7 @@ CREATE TABLE "app_run" (
 	"kind" "run_kind" NOT NULL,
 	"status" "run_status" DEFAULT 'queued' NOT NULL,
 	"subject_type" text NOT NULL,
-	"subject_id" uuid,
+	"subject_id" text,
 	"idempotency_key" text,
 	"triggered_by_user_id" uuid,
 	"input_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -345,7 +359,7 @@ CREATE TABLE "audit_event" (
 	"actor_user_id" uuid,
 	"event_key" text NOT NULL,
 	"entity_type" text NOT NULL,
-	"entity_id" uuid,
+	"entity_id" text,
 	"summary" text,
 	"payload_json" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
@@ -393,13 +407,18 @@ ALTER TABLE "integration_connection" ADD CONSTRAINT "integration_connection_work
 ALTER TABLE "integration_connection" ADD CONSTRAINT "integration_connection_granted_by_user_id_user_id_fk" FOREIGN KEY ("granted_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "playlist_video" ADD CONSTRAINT "playlist_video_playlist_id_youtube_playlist_id_fk" FOREIGN KEY ("playlist_id") REFERENCES "public"."youtube_playlist"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "playlist_video" ADD CONSTRAINT "playlist_video_video_id_source_video_id_fk" FOREIGN KEY ("video_id") REFERENCES "public"."source_video"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "source_video" ADD CONSTRAINT "source_video_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "source_video" ADD CONSTRAINT "source_video_channel_id_youtube_channel_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."youtube_channel"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_channel" ADD CONSTRAINT "youtube_channel_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_channel" ADD CONSTRAINT "youtube_channel_integration_connection_id_integration_connection_id_fk" FOREIGN KEY ("integration_connection_id") REFERENCES "public"."integration_connection"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_playlist" ADD CONSTRAINT "youtube_playlist_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_channel" ADD CONSTRAINT "workspace_channel_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_channel" ADD CONSTRAINT "workspace_channel_channel_id_youtube_channel_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."youtube_channel"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_channel" ADD CONSTRAINT "workspace_channel_integration_connection_id_integration_connection_id_fk" FOREIGN KEY ("integration_connection_id") REFERENCES "public"."integration_connection"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_channel" ADD CONSTRAINT "workspace_channel_added_by_user_id_user_id_fk" FOREIGN KEY ("added_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_playlist" ADD CONSTRAINT "workspace_playlist_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_playlist" ADD CONSTRAINT "workspace_playlist_playlist_id_youtube_playlist_id_fk" FOREIGN KEY ("playlist_id") REFERENCES "public"."youtube_playlist"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_playlist" ADD CONSTRAINT "workspace_playlist_added_by_user_id_user_id_fk" FOREIGN KEY ("added_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_video" ADD CONSTRAINT "workspace_video_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_video" ADD CONSTRAINT "workspace_video_video_id_source_video_id_fk" FOREIGN KEY ("video_id") REFERENCES "public"."source_video"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_video" ADD CONSTRAINT "workspace_video_added_by_user_id_user_id_fk" FOREIGN KEY ("added_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "youtube_playlist" ADD CONSTRAINT "youtube_playlist_channel_id_youtube_channel_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."youtube_channel"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "caption_track" ADD CONSTRAINT "caption_track_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "caption_track" ADD CONSTRAINT "caption_track_video_id_source_video_id_fk" FOREIGN KEY ("video_id") REFERENCES "public"."source_video"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transcript_issue" ADD CONSTRAINT "transcript_issue_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transcript_issue" ADD CONSTRAINT "transcript_issue_revision_id_transcript_revision_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."transcript_revision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -445,9 +464,10 @@ ALTER TABLE "export_artifact" ADD CONSTRAINT "export_artifact_source_draft_versi
 ALTER TABLE "export_artifact" ADD CONSTRAINT "export_artifact_created_by_user_id_user_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_step" ADD CONSTRAINT "run_step_run_id_app_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."app_run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_playlist_video_video" ON "playlist_video" USING btree ("video_id");--> statement-breakpoint
-CREATE INDEX "idx_source_video_workspace_published" ON "source_video" USING btree ("workspace_id","published_at");--> statement-breakpoint
 CREATE INDEX "idx_source_video_channel" ON "source_video" USING btree ("channel_id");--> statement-breakpoint
-CREATE INDEX "idx_youtube_channel_workspace_sync" ON "youtube_channel" USING btree ("workspace_id","sync_status");--> statement-breakpoint
+CREATE INDEX "idx_source_video_published" ON "source_video" USING btree ("published_at");--> statement-breakpoint
+CREATE INDEX "idx_workspace_channel_sync" ON "workspace_channel" USING btree ("workspace_id","sync_status");--> statement-breakpoint
+CREATE INDEX "idx_workspace_video_status" ON "workspace_video" USING btree ("workspace_id","ingest_status");--> statement-breakpoint
 CREATE INDEX "idx_youtube_playlist_channel" ON "youtube_playlist" USING btree ("channel_id");--> statement-breakpoint
 CREATE INDEX "idx_transcript_revision_video_created" ON "transcript_revision" USING btree ("video_id","created_at");--> statement-breakpoint
 CREATE INDEX "idx_transcript_segment_revision_seq" ON "transcript_segment" USING btree ("revision_id","seq");--> statement-breakpoint

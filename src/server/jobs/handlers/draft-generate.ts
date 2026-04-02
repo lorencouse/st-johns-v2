@@ -13,7 +13,7 @@ import type { CaptionSegment } from "@/server/youtube/api";
 
 export interface DraftGeneratePayload {
   workspaceId: string;
-  videoId: string; // our DB UUID
+  videoId: string; // YouTube video ID
   userId: string;
   runId: string;
   projectId?: string; // if creating draft for existing project
@@ -41,7 +41,12 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
     const revisions = await db
       .select()
       .from(transcriptRevisions)
-      .where(eq(transcriptRevisions.videoId, videoId))
+      .where(
+        and(
+          eq(transcriptRevisions.videoId, videoId),
+          eq(transcriptRevisions.workspaceId, workspaceId)
+        )
+      )
       .orderBy(desc(transcriptRevisions.revisionNumber));
 
     const sourceRevision =

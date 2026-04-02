@@ -4,9 +4,10 @@ import {
   captionTracks,
   transcriptRevisions,
   transcriptSegments,
+  workspaceVideos,
   appRuns,
 } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getGoogleAccessToken } from "@/server/auth/google-token";
 import { fetchCaptions } from "@/server/youtube/api";
 import { transcribeWithWhisper } from "@/server/youtube/transcribe";
@@ -18,15 +19,14 @@ import {
 
 export interface VideoIngestPayload {
   workspaceId: string;
-  videoId: string; // our DB UUID
-  providerVideoId: string;
+  videoId: string; // YouTube video ID (e.g. "dQw4w9WgXcQ")
   userId: string;
   runId: string;
   allowWhisperFallback?: boolean;
 }
 
 export async function handleVideoIngest(payload: VideoIngestPayload) {
-  const { workspaceId, videoId, providerVideoId, userId, runId } = payload;
+  const { workspaceId, videoId, userId, runId } = payload;
 
   await db
     .update(appRuns)
@@ -40,8 +40,8 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
 
     if (accessToken) {
       try {
-        console.log(`[video-ingest] Trying YouTube captions for ${providerVideoId}`);
-        segments = await fetchCaptions(providerVideoId, accessToken);
+        console.log(`[video-ingest] Trying YouTube captions for ${videoId}`);
+        segments = await fetchCaptions(videoId, accessToken);
       } catch (captionErr) {
         console.log(`[video-ingest] YouTube captions failed, falling back to Whisper: ${captionErr instanceof Error ? captionErr.message : captionErr}`);
       }
@@ -52,15 +52,14 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       if (!payload.allowWhisperFallback) {
         throw new Error("YouTube captions unavailable and Whisper fallback not enabled for this user");
       }
-      console.log(`[video-ingest] Transcribing ${providerVideoId} with Whisper`);
-      segments = await transcribeWithWhisper(providerVideoId);
+      console.log(`[video-ingest] Transcribing ${videoId} with Whisper`);
+      segments = await transcribeWithWhisper(videoId);
     }
 
-    // 2. Store caption track record
+    // 3. Store caption track record (global — no workspaceId)
     const [track] = await db
       .insert(captionTracks)
       .values({
-        workspaceId,
         videoId,
         languageCode: "en",
         kind: "unknown",
@@ -68,7 +67,7 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       })
       .returning();
 
-    // 3. Create raw transcript revision
+    // 4. Create raw transcript revision (workspace-scoped)
     const [rawRevision] = await db
       .insert(transcriptRevisions)
       .values({
@@ -100,7 +99,7 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       );
     }
 
-    // 4. Create normalized (paragraph-merged) revision
+    // 5. Create normalized (paragraph-merged) revision
     const filtered = filterNoise(segments);
     const paragraphs = mergeIntoParagraphs(filtered);
 
@@ -137,7 +136,7 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       );
     }
 
-    // 5. Create cleaned (no-AI) revision
+    // 6. Create cleaned (no-AI) revision
     const cleanedParagraphs = noAiCleanup(segments);
 
     const [cleanedRevision] = await db
@@ -173,17 +172,21 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       );
     }
 
-    // 6. Update video status
+    // 7. Update workspace video status (on junction table)
     await db
-      .update(sourceVideos)
+      .update(workspaceVideos)
       .set({
         ingestStatus: "captions_available",
         lastCaptionsCheckedAt: new Date(),
-        updatedAt: new Date(),
       })
-      .where(eq(sourceVideos.id, videoId));
+      .where(
+        and(
+          eq(workspaceVideos.workspaceId, workspaceId),
+          eq(workspaceVideos.videoId, videoId)
+        )
+      );
 
-    // 7. Mark run succeeded
+    // 8. Mark run succeeded
     await db
       .update(appRuns)
       .set({
@@ -199,20 +202,24 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       .where(eq(appRuns.id, runId));
 
     console.log(
-      `[video-ingest] Completed ${providerVideoId}: ${segments.length} segments -> ${cleanedParagraphs.length} paragraphs`
+      `[video-ingest] Completed ${videoId}: ${segments.length} segments -> ${cleanedParagraphs.length} paragraphs`
     );
   } catch (error) {
-    console.error(`[video-ingest] Failed ${providerVideoId}:`, error);
+    console.error(`[video-ingest] Failed ${videoId}:`, error);
 
-    // Mark video as failed
+    // Mark workspace video as failed
     await db
-      .update(sourceVideos)
+      .update(workspaceVideos)
       .set({
         ingestStatus: "ingest_failed",
         lastCaptionsCheckedAt: new Date(),
-        updatedAt: new Date(),
       })
-      .where(eq(sourceVideos.id, videoId));
+      .where(
+        and(
+          eq(workspaceVideos.workspaceId, workspaceId),
+          eq(workspaceVideos.videoId, videoId)
+        )
+      );
 
     await db
       .update(appRuns)

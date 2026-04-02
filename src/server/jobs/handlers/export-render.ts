@@ -42,7 +42,7 @@ export async function handleExportRender(payload: ExportRenderPayload) {
     const [project] = await db
       .select({
         project: contentProjects,
-        providerVideoId: sourceVideos.providerVideoId,
+        videoId: sourceVideos.id,
         videoTitle: sourceVideos.title,
       })
       .from(contentProjects)
@@ -78,14 +78,14 @@ export async function handleExportRender(payload: ExportRenderPayload) {
     let extension: string;
 
     if (format === "html") {
-      bodyText = renderHtml(project.providerVideoId, paragraphs, {
+      bodyText = renderHtml(project.videoId, paragraphs, {
         intro: draft.intro,
         summary: draft.summary,
       });
       mimeType = "text/html";
       extension = "html";
     } else {
-      bodyText = renderMarkdown(project.providerVideoId, paragraphs, {
+      bodyText = renderMarkdown(project.videoId, paragraphs, {
         intro: draft.intro,
         summary: draft.summary,
         title: draft.title,

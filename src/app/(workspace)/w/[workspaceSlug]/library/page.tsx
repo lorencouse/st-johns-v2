@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import {
   sourceVideos,
   youtubeChannels,
+  workspaceVideos,
   contentProjects,
 } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -21,10 +22,12 @@ export default async function LibraryPage({
     .select({
       video: sourceVideos,
       channelTitle: youtubeChannels.title,
+      ingestStatus: workspaceVideos.ingestStatus,
     })
-    .from(sourceVideos)
+    .from(workspaceVideos)
+    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
     .leftJoin(youtubeChannels, eq(youtubeChannels.id, sourceVideos.channelId))
-    .where(eq(sourceVideos.workspaceId, workspace.id))
+    .where(eq(workspaceVideos.workspaceId, workspace.id))
     .orderBy(desc(sourceVideos.publishedAt))
     .limit(100);
 
@@ -96,13 +99,14 @@ export default async function LibraryPage({
               </tr>
             </thead>
             <tbody>
-              {videos.map(({ video, channelTitle }) => (
+              {videos.map(({ video, channelTitle, ingestStatus }) => (
                 <VideoRow
                   key={video.id}
                   workspaceId={workspace.id}
                   workspaceSlug={workspaceSlug}
                   video={video}
                   channelTitle={channelTitle}
+                  ingestStatus={ingestStatus}
                   project={projectsByVideo.get(video.id) ?? null}
                 />
               ))}
