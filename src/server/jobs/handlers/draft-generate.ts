@@ -32,7 +32,12 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
     const [video] = await db
       .select()
       .from(sourceVideos)
-      .where(eq(sourceVideos.id, videoId))
+      .where(
+        and(
+          eq(sourceVideos.id, videoId),
+          eq(sourceVideos.workspaceId, workspaceId)
+        )
+      )
       .limit(1);
 
     if (!video) throw new Error("Video not found");

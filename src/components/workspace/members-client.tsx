@@ -136,7 +136,6 @@ export function MembersClient({
           workspaceId={workspaceId}
           onClose={() => setShowInviteModal(false)}
           onInvited={() => {
-            setShowInviteModal(false);
             router.refresh();
           }}
         />

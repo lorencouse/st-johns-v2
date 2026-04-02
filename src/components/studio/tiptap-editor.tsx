@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 interface TiptapEditorProps {
   content: Record<string, unknown>;

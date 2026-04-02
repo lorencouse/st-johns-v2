@@ -31,8 +31,17 @@ export async function GET(
       createdByName: users.name,
     })
     .from(transcriptIssues)
+    .innerJoin(
+      transcriptRevisions,
+      eq(transcriptRevisions.id, transcriptIssues.revisionId)
+    )
     .innerJoin(users, eq(users.id, transcriptIssues.createdByUserId))
-    .where(eq(transcriptIssues.workspaceId, workspaceId))
+    .where(
+      and(
+        eq(transcriptIssues.workspaceId, workspaceId),
+        eq(transcriptRevisions.videoId, videoId)
+      )
+    )
     .orderBy(desc(transcriptIssues.createdAt));
 
   return NextResponse.json({ issues });
@@ -77,9 +86,30 @@ export async function POST(
     );
   }
 
-  // Use provided revisionId or find the latest revision for this workspace
-  let targetRevisionId = revisionId;
-  if (!targetRevisionId) {
+  // Use provided revisionId or find the latest revision
+  let targetRevisionId: string | null = null;
+  if (revisionId) {
+    const [revision] = await db
+      .select({ id: transcriptRevisions.id })
+      .from(transcriptRevisions)
+      .where(
+        and(
+          eq(transcriptRevisions.id, revisionId),
+          eq(transcriptRevisions.videoId, videoId),
+          eq(transcriptRevisions.workspaceId, workspaceId)
+        )
+      )
+      .limit(1);
+
+    if (!revision) {
+      return NextResponse.json(
+        { error: "Transcript revision not found" },
+        { status: 404 }
+      );
+    }
+
+    targetRevisionId = revision.id;
+  } else {
     const [latestRevision] = await db
       .select({ id: transcriptRevisions.id })
       .from(transcriptRevisions)

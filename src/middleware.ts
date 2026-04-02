@@ -11,7 +11,7 @@ export default auth((req) => {
     pathname === "/signin" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
-    pathname.startsWith("/accept-invite") ||
+    pathname.startsWith("/invite/") ||
     pathname.startsWith("/api/auth")
   ) {
     // Redirect signed-in users away from landing/signin

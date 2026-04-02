@@ -115,7 +115,6 @@ export default async function StudioPage({
   return (
     <StudioClient
       workspaceId={workspace.id}
-      workspaceSlug={workspaceSlug}
       projectId={projectId}
       projectTitle={result.project.title}
       projectStatus={result.project.status}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { normalizeEmail } from "@/lib/security";
 import { db } from "@/server/db";
 import { workspaceInvites } from "@/server/db/schema";
 import { randomBytes, createHash } from "crypto";
@@ -20,7 +21,9 @@ export async function POST(
   }
 
   const body = await req.json();
-  const { email, role } = body;
+  const email =
+    typeof body.email === "string" ? normalizeEmail(body.email) : "";
+  const { role } = body;
 
   if (!email || !role) {
     return NextResponse.json(
@@ -56,6 +59,7 @@ export async function POST(
     email: invite.email,
     role: invite.role,
     token,
+    inviteUrl: new URL(`/invite/${token}`, req.url).toString(),
     expiresAt: invite.expiresAt.toISOString(),
   });
 }

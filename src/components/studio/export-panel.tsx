@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 interface ExportArtifact {
   id: string;
@@ -20,23 +20,29 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
   const [artifacts, setArtifacts] = useState<ExportArtifact[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
 
-  const fetchArtifacts = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/projects/${projectId}/exports`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setArtifacts(data.artifacts);
-      }
-    } catch {
-      // Silent fail
-    }
-  }, [workspaceId, projectId]);
-
   useEffect(() => {
-    fetchArtifacts();
-  }, [fetchArtifacts]);
+    let isActive = true;
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/projects/${projectId}/exports`
+        );
+        if (!res.ok || !isActive) return;
+
+        const data = await res.json();
+        if (isActive) {
+          setArtifacts(data.artifacts);
+        }
+      } catch {
+        // Silent fail
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [workspaceId, projectId]);
 
   function handleDownload(artifact: ExportArtifact) {
     if (!artifact.bodyText) return;

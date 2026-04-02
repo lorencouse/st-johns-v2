@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { appRuns } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { appRuns, workspaceMembers } from "@/server/db/schema";
+import { and, eq } from "drizzle-orm";
 
 export async function GET(
   _req: NextRequest,
@@ -14,15 +14,22 @@ export async function GET(
   }
 
   const { runId } = await params;
-  const [run] = await db
-    .select()
+  const [result] = await db
+    .select({ run: appRuns })
     .from(appRuns)
+    .innerJoin(
+      workspaceMembers,
+      and(
+        eq(workspaceMembers.workspaceId, appRuns.workspaceId),
+        eq(workspaceMembers.userId, session.user.id)
+      )
+    )
     .where(eq(appRuns.id, runId))
     .limit(1);
 
-  if (!run) {
+  if (!result) {
     return NextResponse.json({ error: "Run not found" }, { status: 404 });
   }
 
-  return NextResponse.json(run);
+  return NextResponse.json(result.run);
 }

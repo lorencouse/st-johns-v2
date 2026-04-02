@@ -5,10 +5,12 @@ import {
   accounts,
   integrationConnections,
   appRuns,
+  workspaceMembers,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { channelSyncQueue } from "@/server/jobs/queue";
+import { sanitizeLocalRedirectPath } from "@/lib/security";
 
 /**
  * Handles the OAuth callback after the user grants youtube.force-ssl scope.
@@ -23,8 +25,10 @@ export async function GET(req: NextRequest) {
 
   const cookieStore = await cookies();
   const storedState = cookieStore.get("youtube-oauth-state")?.value;
-  const redirectPath =
-    cookieStore.get("youtube-oauth-redirect")?.value || "/app";
+  const redirectPath = sanitizeLocalRedirectPath(
+    cookieStore.get("youtube-oauth-redirect")?.value,
+    "/app"
+  );
   const workspaceId =
     cookieStore.get("youtube-oauth-workspace")?.value || null;
 
@@ -113,6 +117,23 @@ export async function GET(req: NextRequest) {
     // Auto-trigger channel sync if workspace context is available
     if (workspaceId) {
       try {
+        const [membership] = await db
+          .select({ id: workspaceMembers.id })
+          .from(workspaceMembers)
+          .where(
+            and(
+              eq(workspaceMembers.workspaceId, workspaceId),
+              eq(workspaceMembers.userId, session.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!membership) {
+          const url = new URL(redirectPath, req.url);
+          url.searchParams.set("youtube_error", "workspace_access_denied");
+          return NextResponse.redirect(url);
+        }
+
         // Find or create integration connection
         let [connection] = await db
           .select()

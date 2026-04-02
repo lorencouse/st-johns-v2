@@ -1,6 +1,17 @@
 import { signIn } from "@/server/auth";
+import { sanitizeLocalRedirectPath } from "@/lib/security";
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const callbackUrl = Array.isArray(params.callbackUrl)
+    ? params.callbackUrl[0]
+    : params.callbackUrl;
+  const redirectTo = sanitizeLocalRedirectPath(callbackUrl, "/app");
+
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-sm space-y-6 text-center">
@@ -14,7 +25,7 @@ export default function SignInPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/app" });
+            await signIn("google", { redirectTo });
           }}
         >
           <button

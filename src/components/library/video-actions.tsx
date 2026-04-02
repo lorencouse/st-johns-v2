@@ -10,7 +10,7 @@ interface VideoActionsProps {
   videoId: string;
   workspaceSlug: string;
   ingestStatus: string;
-  hasProject: boolean;
+  project: { id: string; status: string } | null;
 }
 
 export function VideoActions({
@@ -18,7 +18,7 @@ export function VideoActions({
   videoId,
   workspaceSlug,
   ingestStatus,
-  hasProject,
+  project,
 }: VideoActionsProps) {
   const router = useRouter();
   const [runId, setRunId] = useState<string | null>(null);
@@ -61,6 +61,15 @@ export function VideoActions({
 
   return (
     <div className="flex items-center gap-2">
+      {project && (
+        <Link
+          href={`/w/${workspaceSlug}/projects/${project.id}`}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+        >
+          Open project
+        </Link>
+      )}
+
       {ingestStatus !== "captions_available" && (
         <button
           onClick={handleIngest}
@@ -71,7 +80,7 @@ export function VideoActions({
         </button>
       )}
 
-      {ingestStatus === "captions_available" && !hasProject && (
+      {ingestStatus === "captions_available" && !project && (
         <Link
           href={`/w/${workspaceSlug}/library/${videoId}/review`}
           className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"

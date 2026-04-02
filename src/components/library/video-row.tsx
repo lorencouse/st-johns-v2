@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { RunStatus } from "@/components/studio/run-status";
+import Image from "next/image";
+import { VideoActions } from "./video-actions";
 
 interface VideoRowProps {
   workspaceId: string;
@@ -28,102 +28,104 @@ export function VideoRow({
   project,
 }: VideoRowProps) {
   const router = useRouter();
-  const [runId, setRunId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  async function handleClick() {
-    // If project exists, navigate to it
+  function handleClick() {
     if (project) {
       router.push(`/w/${workspaceSlug}/projects/${project.id}`);
       return;
     }
 
-    // If captions are available, go to review
     if (ingestStatus === "captions_available") {
       router.push(`/w/${workspaceSlug}/library/${video.id}/review`);
       return;
     }
-
-    // Otherwise, trigger ingest
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${video.id}/ingest`,
-        { method: "POST" }
-      );
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to start ingestion");
-        return;
-      }
-      const data = await res.json();
-      setRunId(data.runId);
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
   }
 
-  function handleIngestComplete() {
-    setRunId(null);
-    // After ingest completes, go to review
-    router.push(`/w/${workspaceSlug}/library/${video.id}/review`);
-  }
+  const pipelineLabel =
+    video.ingestStatus === "captions_available"
+      ? "Transcript ready"
+      : video.ingestStatus === "ingest_failed"
+        ? "Ingest failed"
+        : video.ingestStatus === "metadata_synced"
+          ? "Waiting for captions"
+          : "Not processed";
+
+  const pipelineTone =
+    video.ingestStatus === "captions_available"
+      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+      : video.ingestStatus === "ingest_failed"
+        ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+        : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+
+  const projectTone = project
+    ? project.status === "approved"
+      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+      : project.status === "ready_for_review"
+        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+        : project.status === "changes_requested"
+          ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+          : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+    : "";
 
   return (
     <tr className="border-b border-zinc-100 dark:border-zinc-800">
-      <td className="py-3 pr-4">
+      <td className="px-4 py-4 pr-4">
         <button
           onClick={handleClick}
-          disabled={loading || !!runId}
-          className="flex items-center gap-3 text-left hover:opacity-80 disabled:opacity-60"
+          className="flex items-center gap-3 text-left hover:opacity-80"
         >
           {video.thumbnailUrl && (
-            <img
+            <Image
               src={video.thumbnailUrl}
               alt=""
+              width={64}
+              height={36}
               className="h-9 w-16 shrink-0 rounded object-cover"
             />
           )}
-          <span className="font-medium line-clamp-1">{video.title}</span>
+          <div>
+            <span className="font-medium line-clamp-1">{video.title}</span>
+            <p className="mt-1 text-xs text-zinc-500">
+              {project
+                ? "Open the project workspace"
+                : video.ingestStatus === "captions_available"
+                  ? "Review transcript and start drafting"
+                  : "Fetch captions to start the editorial flow"}
+            </p>
+          </div>
         </button>
       </td>
-      <td className="py-3 pr-4 text-zinc-500">{channelTitle}</td>
-      <td className="py-3 pr-4 text-zinc-500">
+      <td className="px-4 py-4 pr-4 text-zinc-500">{channelTitle}</td>
+      <td className="px-4 py-4 pr-4 text-zinc-500">
         {video.publishedAt
           ? new Date(video.publishedAt).toLocaleDateString()
           : "—"}
       </td>
-      <td className="py-3 pr-4">
-        {runId ? (
-          <RunStatus runId={runId} onComplete={handleIngestComplete} />
-        ) : loading ? (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-            starting...
-          </span>
-        ) : (
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-            {ingestStatus.replace("_", " ")}
-          </span>
-        )}
+      <td className="px-4 py-4 pr-4">
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pipelineTone}`}>
+          {pipelineLabel}
+        </span>
       </td>
-      <td className="py-3 pr-4">
+      <td className="px-4 py-4 pr-4">
         {project ? (
           <Link
             href={`/w/${workspaceSlug}/projects/${project.id}`}
-            className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400"
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${projectTone}`}
           >
             {project.status.replace("_", " ")}
           </Link>
         ) : (
-          <span className="text-xs text-zinc-400">—</span>
+          <span className="text-xs text-zinc-400">Not started</span>
         )}
       </td>
-      <td className="py-3">
-        {error && <span className="text-xs text-red-500">{error}</span>}
+      <td className="px-4 py-4">
+        <VideoActions
+          workspaceId={workspaceId}
+          videoId={video.id}
+          workspaceSlug={workspaceSlug}
+          ingestStatus={video.ingestStatus}
+          project={project}
+        />
       </td>
     </tr>
   );

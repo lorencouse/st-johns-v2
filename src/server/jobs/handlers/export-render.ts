@@ -6,7 +6,7 @@ import {
   sourceVideos,
   appRuns,
 } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { renderHtml, renderMarkdown } from "@/server/export/render";
 import type { Paragraph } from "@/server/ai/cleanup";
 
@@ -33,7 +33,13 @@ export async function handleExportRender(payload: ExportRenderPayload) {
     const [draft] = await db
       .select()
       .from(draftVersions)
-      .where(eq(draftVersions.id, draftVersionId))
+      .where(
+        and(
+          eq(draftVersions.id, draftVersionId),
+          eq(draftVersions.workspaceId, workspaceId),
+          eq(draftVersions.contentProjectId, projectId)
+        )
+      )
       .limit(1);
 
     if (!draft) throw new Error("Draft version not found");
@@ -50,7 +56,12 @@ export async function handleExportRender(payload: ExportRenderPayload) {
         sourceVideos,
         eq(sourceVideos.id, contentProjects.sourceVideoId)
       )
-      .where(eq(contentProjects.id, projectId))
+      .where(
+        and(
+          eq(contentProjects.id, projectId),
+          eq(contentProjects.workspaceId, workspaceId)
+        )
+      )
       .limit(1);
 
     if (!project) throw new Error("Project not found");

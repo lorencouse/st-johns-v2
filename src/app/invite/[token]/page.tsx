@@ -1,4 +1,6 @@
 import { auth } from "@/server/auth";
+import { signOut } from "@/server/auth";
+import { normalizeEmail } from "@/lib/security";
 import { db } from "@/server/db";
 import {
   workspaceInvites,
@@ -73,6 +75,52 @@ export default async function AcceptInvitePage({
 
   if (existing) {
     redirect(`/w/${invite.workspaceSlug}/library`);
+  }
+
+  const sessionEmail = session.user.email
+    ? normalizeEmail(session.user.email)
+    : null;
+  const invitedEmail = normalizeEmail(invite.invite.email);
+
+  if (!sessionEmail || sessionEmail !== invitedEmail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h1 className="text-xl font-semibold">Wrong Google account</h1>
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            This invite for {invite.workspaceName} was sent to{" "}
+            <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              {invite.invite.email}
+            </span>
+            . You are currently signed in as{" "}
+            <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              {session.user.email ?? "an unknown account"}
+            </span>
+            .
+          </p>
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            Sign out and continue with the invited email address to accept this
+            workspace invite.
+          </p>
+          <form
+            action={async () => {
+              "use server";
+              await signOut({
+                redirectTo: `/signin?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`,
+              });
+            }}
+            className="mt-6"
+          >
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Sign out and switch account
+            </button>
+          </form>
+        </div>
+      </div>
+    );
   }
 
   // Accept the invite

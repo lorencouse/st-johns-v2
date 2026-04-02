@@ -11,7 +11,6 @@ import { ExportPanel } from "./export-panel";
 
 interface StudioClientProps {
   workspaceId: string;
-  workspaceSlug: string;
   projectId: string;
   projectTitle: string;
   projectStatus: string;
@@ -38,7 +37,6 @@ interface StudioClientProps {
 
 export function StudioClient({
   workspaceId,
-  workspaceSlug,
   projectId,
   projectTitle,
   projectStatus,

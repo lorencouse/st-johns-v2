@@ -2,6 +2,7 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import { youtubeChannels, workspaceChannels } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
+import Image from "next/image";
 import { ConnectChannelButton } from "@/components/workspace/connect-channel-button";
 import { ReconnectGoogleButton } from "@/components/workspace/reconnect-google-button";
 
@@ -62,9 +63,11 @@ export default async function IntegrationsPage({
                 >
                   <div className="flex items-center gap-3">
                     {channel.thumbnailUrl && (
-                      <img
+                      <Image
                         src={channel.thumbnailUrl}
                         alt=""
+                        width={40}
+                        height={40}
                         className="h-10 w-10 rounded-full"
                       />
                     )}

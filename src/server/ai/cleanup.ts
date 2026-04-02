@@ -352,7 +352,7 @@ export async function aiCleanup(
 
     console.log(`[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`);
 
-    let allParagraphs: Paragraph[] = [];
+    const allParagraphs: Paragraph[] = [];
     let totalTokensUsed = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;

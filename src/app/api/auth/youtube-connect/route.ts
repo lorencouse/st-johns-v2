@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/server/auth";
+import { db } from "@/server/db";
+import { workspaceMembers } from "@/server/db/schema";
+import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
 import { cookies } from "next/headers";
+import { sanitizeLocalRedirectPath } from "@/lib/security";
 
 /**
  * Initiates an incremental OAuth flow to request the youtube.force-ssl scope.
@@ -21,8 +25,31 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const redirectParam = req.nextUrl.searchParams.get("redirect") || "/app";
+  const redirectParam = sanitizeLocalRedirectPath(
+    req.nextUrl.searchParams.get("redirect"),
+    "/app"
+  );
   const workspaceId = req.nextUrl.searchParams.get("workspaceId") || "";
+
+  if (workspaceId) {
+    const [membership] = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.workspaceId, workspaceId),
+          eq(workspaceMembers.userId, session.user.id)
+        )
+      )
+      .limit(1);
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: "Not a member of that workspace" },
+        { status: 403 }
+      );
+    }
+  }
 
   // Generate CSRF state token
   const state = crypto.randomBytes(32).toString("hex");

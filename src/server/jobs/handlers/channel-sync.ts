@@ -38,6 +38,21 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
     .where(eq(appRuns.id, runId));
 
   try {
+    const [connection] = await db
+      .select({ id: integrationConnections.id })
+      .from(integrationConnections)
+      .where(
+        and(
+          eq(integrationConnections.id, integrationConnectionId),
+          eq(integrationConnections.workspaceId, workspaceId)
+        )
+      )
+      .limit(1);
+
+    if (!connection) {
+      throw new Error("Integration connection not found for workspace");
+    }
+
     const accessToken = await getGoogleAccessToken(userId);
     if (!accessToken) {
       throw new Error("No valid Google access token. Please re-authenticate.");
