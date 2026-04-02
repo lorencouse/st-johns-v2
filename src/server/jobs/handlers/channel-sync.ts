@@ -7,6 +7,7 @@ import {
   workspaceChannels,
   workspaceVideos,
   workspacePlaylists,
+  integrationConnections,
   appRuns,
 } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";

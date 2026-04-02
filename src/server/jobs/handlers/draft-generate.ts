@@ -5,6 +5,7 @@ import {
   transcriptRevisions,
   transcriptSegments,
   sourceVideos,
+  workspaceVideos,
   appRuns,
 } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -28,19 +29,21 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
     .where(eq(appRuns.id, runId));
 
   try {
-    // 1. Get video info
-    const [video] = await db
-      .select()
-      .from(sourceVideos)
+    // 1. Get video info (verify it belongs to workspace via junction table)
+    const [result] = await db
+      .select({ video: sourceVideos })
+      .from(workspaceVideos)
+      .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
       .where(
         and(
-          eq(sourceVideos.id, videoId),
-          eq(sourceVideos.workspaceId, workspaceId)
+          eq(workspaceVideos.videoId, videoId),
+          eq(workspaceVideos.workspaceId, workspaceId)
         )
       )
       .limit(1);
 
-    if (!video) throw new Error("Video not found");
+    if (!result) throw new Error("Video not found");
+    const video = result.video;
 
     // 2. Get the best available transcript revision (prefer human_edited > cleaned > normalized > raw)
     const revisions = await db

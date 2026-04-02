@@ -4,6 +4,7 @@ import {
   sourceVideos,
   youtubeChannels,
   workspaceVideos,
+  workspaceChannels,
   contentProjects,
 } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -31,9 +32,9 @@ export default async function LibraryPage({
     .limit(100);
 
   const channels = await db
-    .select({ id: youtubeChannels.id })
-    .from(youtubeChannels)
-    .where(eq(youtubeChannels.workspaceId, workspace.id));
+    .select({ id: workspaceChannels.channelId })
+    .from(workspaceChannels)
+    .where(eq(workspaceChannels.workspaceId, workspace.id));
 
   // Get project status for each video
   const projectsByVideo = new Map<
@@ -62,12 +63,12 @@ export default async function LibraryPage({
       workspaceSlug={workspaceSlug}
       workspaceName={workspace.name}
       channelCount={channels.length}
-      videos={videos.map(({ video, channelTitle }) => ({
+      videos={videos.map(({ video, channelTitle, ingestStatus }) => ({
         id: video.id,
         title: video.title,
         thumbnailUrl: video.thumbnailUrl,
         publishedAt: video.publishedAt?.toISOString() ?? null,
-        ingestStatus: video.ingestStatus,
+        ingestStatus,
         channelTitle,
         project: projectsByVideo.get(video.id) ?? null,
       }))}
