@@ -1,8 +1,19 @@
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
-import { workspaceMembers, workspaces } from "@/server/db/schema";
+import { users, workspaceMembers, workspaces } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+
+export type UserRole = "user" | "premium" | "admin";
+
+export async function getUserRole(userId: string): Promise<UserRole> {
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return user?.role ?? "user";
+}
 
 export async function requireApiWorkspaceMember(workspaceId: string) {
   const session = await auth();

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, getUserRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
-  integrationConnections,
   youtubeChannels,
   workspaceChannels,
-  appRuns,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { channelSyncQueue } from "@/server/jobs/queue";
+import {
+  ChannelSyncRunError,
+  runChannelSyncNow,
+} from "@/server/youtube/run-channel-sync";
 
 export async function POST(
   req: NextRequest,
@@ -25,48 +26,30 @@ export async function POST(
   const body = await req.json();
   const { channelUrl } = body; // optional - if omitted, syncs user's own channel
 
-  // Find or create integration connection for this workspace
-  let [connection] = await db
-    .select()
-    .from(integrationConnections)
-    .where(eq(integrationConnections.workspaceId, workspaceId))
-    .limit(1);
+  // Admin/premium users can sync external channels via API key
+  const userRole = await getUserRole(ctx.userId);
+  const useApiKey =
+    !!channelUrl && ["admin", "premium"].includes(userRole);
 
-  if (!connection) {
-    [connection] = await db
-      .insert(integrationConnections)
-      .values({
-        workspaceId,
-        provider: "youtube",
-        status: "active",
-        grantedByUserId: ctx.userId,
-      })
-      .returning();
-  }
-
-  // Create a run record
-  const [run] = await db
-    .insert(appRuns)
-    .values({
+  try {
+    const result = await runChannelSyncNow({
       workspaceId,
-      kind: "channel_sync",
-      status: "queued",
-      subjectType: "youtube_channel",
-      triggeredByUserId: ctx.userId,
-      inputJson: { channelUrl: channelUrl || null },
-    })
-    .returning();
+      userId: ctx.userId,
+      channelUrl: channelUrl || undefined,
+      useApiKey,
+    });
 
-  // Queue the job
-  await channelSyncQueue.add("sync", {
-    workspaceId,
-    integrationConnectionId: connection.id,
-    userId: ctx.userId,
-    runId: run.id,
-    channelUrl: channelUrl || undefined,
-  });
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof ChannelSyncRunError) {
+      return NextResponse.json(
+        { error: error.message, runId: error.runId },
+        { status: 500 }
+      );
+    }
 
-  return NextResponse.json({ runId: run.id }, { status: 202 });
+    throw error;
+  }
 }
 
 export async function GET(

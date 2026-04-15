@@ -10,6 +10,8 @@ import {
   verificationTokens,
 } from "@/server/db/schema";
 
+type UserRole = "user" | "premium" | "admin";
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
@@ -57,15 +59,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
+      }
+      // Load role from DB on sign-in or refresh
+      if (token.id && (trigger === "signIn" || !token.role)) {
+        const [dbUser] = await db
+          .select({ role: users.role })
+          .from(users)
+          .where(eq(users.id, token.id as string))
+          .limit(1);
+        token.role = dbUser?.role ?? "user";
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        (session.user as { role?: string }).role =
+          (token.role as UserRole) ?? "user";
       }
       return session;
     },

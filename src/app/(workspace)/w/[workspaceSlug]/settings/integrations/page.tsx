@@ -2,7 +2,6 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import { youtubeChannels, workspaceChannels } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import Image from "next/image";
 import { ConnectChannelButton } from "@/components/workspace/connect-channel-button";
 import { ReconnectGoogleButton } from "@/components/workspace/reconnect-google-button";
 import { RemoveChannelButton } from "@/components/workspace/remove-channel-button";
@@ -48,8 +47,15 @@ export default async function IntegrationsPage({
 
         <section>
           <h2 className="text-lg font-semibold">Connect YouTube Channel</h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+            Connecting a channel imports its videos and playlists into the library.
+            Projects and caption fetches still start manually per video.
+          </p>
           <div className="mt-4 max-w-md">
-            <ConnectChannelButton workspaceId={workspace.id} />
+            <ConnectChannelButton
+              workspaceId={workspace.id}
+              workspaceSlug={workspaceSlug}
+            />
           </div>
         </section>
 
@@ -64,12 +70,12 @@ export default async function IntegrationsPage({
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     {channel.thumbnailUrl && (
-                      <Image
+                      <img
                         src={channel.thumbnailUrl}
                         alt=""
-                        width={40}
-                        height={40}
                         className="h-10 w-10 rounded-full"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
                       />
                     )}
                     <div>

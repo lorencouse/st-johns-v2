@@ -4,11 +4,9 @@ import { db } from "@/server/db";
 import {
   workspaces,
   workspaceMembers,
-  integrationConnections,
-  appRuns,
 } from "@/server/db/schema";
-import { channelSyncQueue } from "@/server/jobs/queue";
 import { eq } from "drizzle-orm";
+import { runChannelSyncNow } from "@/server/youtube/run-channel-sync";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -57,38 +55,15 @@ export async function POST(req: NextRequest) {
     createdByUserId: session.user.id,
   });
 
-  // Auto-connect YouTube: create integration and queue channel sync
+  // Auto-connect YouTube when the current account already has the needed scope.
   try {
-    const [connection] = await db
-      .insert(integrationConnections)
-      .values({
-        workspaceId: workspace.id,
-        provider: "youtube",
-        status: "active",
-        grantedByUserId: session.user.id,
-      })
-      .returning();
-
-    const [run] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId: workspace.id,
-        kind: "channel_sync",
-        status: "queued",
-        subjectType: "youtube_channel",
-        triggeredByUserId: session.user.id,
-        inputJson: { channelUrl: null },
-      })
-      .returning();
-
-    await channelSyncQueue.add("sync", {
+    await runChannelSyncNow({
       workspaceId: workspace.id,
-      integrationConnectionId: connection.id,
       userId: session.user.id,
-      runId: run.id,
+      inputJson: { autoTriggered: true, workspaceCreated: true },
     });
   } catch (err) {
-    // Don't fail workspace creation if YouTube sync fails to queue
+    // Don't fail workspace creation if YouTube sync can't complete yet.
     console.error("[workspace] Failed to auto-connect YouTube:", err);
   }
 

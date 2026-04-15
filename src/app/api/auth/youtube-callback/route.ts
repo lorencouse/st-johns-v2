@@ -3,14 +3,15 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import {
   accounts,
-  integrationConnections,
-  appRuns,
   workspaceMembers,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { channelSyncQueue } from "@/server/jobs/queue";
 import { sanitizeLocalRedirectPath, getRequestBaseUrl } from "@/lib/security";
+import {
+  ChannelSyncRunError,
+  runChannelSyncNow,
+} from "@/server/youtube/run-channel-sync";
 
 /**
  * Handles the OAuth callback after the user grants youtube.force-ssl scope.
@@ -136,55 +137,23 @@ export async function GET(req: NextRequest) {
           return NextResponse.redirect(url);
         }
 
-        // Find or create integration connection
-        let [connection] = await db
-          .select()
-          .from(integrationConnections)
-          .where(eq(integrationConnections.workspaceId, workspaceId))
-          .limit(1);
-
-        if (!connection) {
-          [connection] = await db
-            .insert(integrationConnections)
-            .values({
-              workspaceId,
-              provider: "youtube",
-              status: "active",
-              grantedByUserId: session.user.id,
-            })
-            .returning();
-        }
-
-        // Create a run record
-        const [run] = await db
-          .insert(appRuns)
-          .values({
-            workspaceId,
-            kind: "channel_sync",
-            status: "queued",
-            subjectType: "youtube_channel",
-            triggeredByUserId: session.user.id,
-            inputJson: { channelUrl: null, autoTriggered: true },
-          })
-          .returning();
-
-        // Queue the sync job
-        await channelSyncQueue.add("sync", {
+        const result = await runChannelSyncNow({
           workspaceId,
-          integrationConnectionId: connection.id,
           userId: session.user.id,
-          runId: run.id,
+          inputJson: { autoTriggered: true },
         });
 
-        redirectUrl.searchParams.set("syncRunId", run.id);
-
         console.log(
-          `[youtube-callback] Auto-triggered channel sync for workspace ${workspaceId}, run ${run.id}`
+          `[youtube-callback] Completed channel sync for workspace ${workspaceId}, run ${result.runId}`
         );
       } catch (syncErr) {
-        // Don't fail the whole callback if sync queueing fails
+        if (syncErr instanceof ChannelSyncRunError) {
+          redirectUrl.searchParams.set("youtube_error", "channel_sync_failed");
+        }
+
+        // Don't fail the whole callback if sync fails
         console.error(
-          "[youtube-callback] Failed to auto-trigger channel sync:",
+          "[youtube-callback] Failed to complete channel sync:",
           syncErr
         );
       }

@@ -25,11 +25,20 @@ interface LibraryVideo {
   project: { id: string; status: string } | null;
 }
 
+interface LibraryPlaylist {
+  id: string;
+  title: string;
+  kind: string;
+  itemCount: number;
+  channelTitle: string | null;
+}
+
 interface LibraryDashboardProps {
   workspaceId: string;
   workspaceSlug: string;
   workspaceName: string;
   channelCount: number;
+  playlists: LibraryPlaylist[];
   syncRunId: string | null;
   videos: LibraryVideo[];
 }
@@ -88,33 +97,33 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
     {
       id: "connect_channel",
       title: "Connect a YouTube channel",
-      description: "Grant YouTube access so the workspace can sync your library.",
+      description: "Grant YouTube access so the workspace can import the channel library.",
       done: channelCount > 0,
       actionLabel: "Open integrations",
       href: "settings/integrations",
     },
     {
       id: "sync_videos",
-      title: "Import your first videos",
-      description: "Run a channel sync to populate the library with recent uploads.",
+      title: "See videos and playlists",
+      description: "After connecting, the workspace should show imported uploads and playlists.",
       done: videos.length > 0,
       actionLabel: "Open integrations",
       href: "settings/integrations",
     },
     {
       id: "fetch_captions",
-      title: "Fetch a transcript",
-      description: "Pull captions for at least one video so drafting can begin.",
+      title: "Fetch captions for a video",
+      description: "Choose a video from the library and pull its captions when you are ready to work on it.",
       done: captionsReady > 0,
       actionLabel: "Show videos needing captions",
       filter: "needs_captions" as const,
     },
     {
       id: "generate_draft",
-      title: "Generate your first draft",
-      description: "Move a transcript into the editorial workflow.",
+      title: "Start your first project",
+      description: "Review the transcript, then create a project from that video.",
       done: hasProject,
-      actionLabel: "Show draft-ready videos",
+      actionLabel: "Show caption-ready videos",
       filter: "ready_to_draft" as const,
     },
     {
@@ -143,6 +152,7 @@ export function LibraryDashboard({
   workspaceSlug,
   workspaceName,
   channelCount,
+  playlists,
   syncRunId,
   videos,
 }: LibraryDashboardProps) {
@@ -188,7 +198,7 @@ export function LibraryDashboard({
               </p>
               <p className="mt-1 text-sm text-blue-700 dark:text-blue-200">
                 The channel link succeeded. This page will refresh as soon as the
-                initial video sync finishes.
+                imported videos and playlists are ready.
               </p>
             </div>
             <div className="min-w-[220px]">
@@ -215,8 +225,8 @@ export function LibraryDashboard({
               {workspaceName} content pipeline
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              Track what has been synced, what is ready for drafting, and what
-              still needs attention before it reaches review.
+              Start with the imported channel library, pick a video to fetch captions,
+              then turn that reviewed transcript into a project when you are ready.
             </p>
           </div>
 
@@ -231,7 +241,7 @@ export function LibraryDashboard({
             <SummaryCard
               label="Ready to draft"
               value={summary.readyToDraft}
-              detail="Captions available, no project yet"
+              detail="Captions available, project not started"
               active={activeFilter === "ready_to_draft"}
               onClick={() => setActiveFilter("ready_to_draft")}
             />
@@ -259,8 +269,7 @@ export function LibraryDashboard({
             <div>
               <h2 className="text-lg font-semibold">Workflow views</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Filter the library by the next operational step instead of
-                scanning every row.
+                Browse imported videos, then focus on the next step for each one.
               </p>
             </div>
             <div className="w-full max-w-sm">
@@ -312,8 +321,8 @@ export function LibraryDashboard({
             <div className="mt-6 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/50">
               <h3 className="text-lg font-semibold">Your library is empty</h3>
               <p className="mt-2 text-sm text-zinc-500">
-                Connect YouTube, sync the channel, and your newest videos will
-                appear here for transcript processing and drafting.
+                Connect YouTube and the workspace will import the channel&apos;s videos
+                and playlists here for you to work through manually.
               </p>
               <div className="mt-5">
                 <a
@@ -386,86 +395,133 @@ export function LibraryDashboard({
           )}
         </div>
 
-        <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Setup checklist</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Make the first publishing run obvious for new workspaces.
-              </p>
+        <div className="space-y-6">
+          <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Playlists</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Imported with the channel so the library shows both uploads and playlist structure immediately.
+                </p>
+              </div>
+              <p className="text-2xl font-semibold">{playlists.length}</p>
             </div>
-            <div className="text-right">
-              <p className="text-2xl font-semibold">{completionPercent}%</p>
-              <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
-                completed
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-blue-600 transition-[width]"
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {summary.checklist.map((item, index) => (
-              <div
-                key={item.id}
-                className={`rounded-2xl border p-4 ${
-                  item.done
-                    ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30"
-                    : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70"
-                }`}
-              >
-                <div className="flex items-start gap-3">
+            {playlists.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50">
+                Playlists will appear here as soon as a channel is connected.
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {playlists.map((playlist) => (
                   <div
-                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                      item.done
-                        ? "bg-emerald-600 text-white"
-                        : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                    }`}
+                    key={playlist.id}
+                    className="flex items-center justify-between rounded-2xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
                   >
-                    {item.done ? "✓" : index + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{item.title}</p>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      {item.description}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium">{playlist.title}</p>
+                        {playlist.kind === "uploads" && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                            Uploads
+                          </span>
+                        )}
+                      </div>
+                      {playlist.channelTitle && (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {playlist.channelTitle}
+                        </p>
+                      )}
+                    </div>
+                    <p className="shrink-0 text-xs text-zinc-500">
+                      {playlist.itemCount} video{playlist.itemCount === 1 ? "" : "s"}
                     </p>
-                    {!item.done && item.href && (
-                      <Link
-                        href={`/w/${workspaceSlug}/${item.href}`}
-                        className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                      >
-                        {item.actionLabel}
-                      </Link>
-                    )}
-                    {!item.done && item.filter && (
-                      <button
-                        type="button"
-                        onClick={() => setActiveFilter(item.filter)}
-                        className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                      >
-                        {item.actionLabel}
-                      </button>
-                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">Setup checklist</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Keep the workflow explicit: import library, choose a video, fetch captions, then start a project.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-semibold">{completionPercent}%</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
+                  completed
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-[width]"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {summary.checklist.map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`rounded-2xl border p-4 ${
+                    item.done
+                      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30"
+                      : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                        item.done
+                          ? "bg-emerald-600 text-white"
+                          : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                      }`}
+                    >
+                      {item.done ? "✓" : index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{item.title}</p>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        {item.description}
+                      </p>
+                      {!item.done && item.href && (
+                        <Link
+                          href={`/w/${workspaceSlug}/${item.href}`}
+                          className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                        >
+                          {item.actionLabel}
+                        </Link>
+                      )}
+                      {!item.done && item.filter && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveFilter(item.filter)}
+                          className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                        >
+                          {item.actionLabel}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div className="mt-5 rounded-2xl bg-zinc-950 p-4 text-zinc-100 dark:bg-zinc-900">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-              Editorial signal
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <SignalStat label="Captions ready" value={summary.captionsReady} />
-              <SignalStat label="Drafting" value={summary.drafting} />
-              <SignalStat label="Review queue" value={summary.reviewQueue} />
-              <SignalStat label="Approved" value={summary.approved} />
+            <div className="mt-5 rounded-2xl bg-zinc-950 p-4 text-zinc-100 dark:bg-zinc-900">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                Editorial signal
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <SignalStat label="Captions ready" value={summary.captionsReady} />
+                <SignalStat label="Drafting" value={summary.drafting} />
+                <SignalStat label="Review queue" value={summary.reviewQueue} />
+                <SignalStat label="Approved" value={summary.approved} />
+              </div>
             </div>
           </div>
         </div>

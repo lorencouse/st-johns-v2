@@ -1,22 +1,40 @@
 const YT_API = "https://www.googleapis.com/youtube/v3";
 
-async function ytFetchOAuth(
+/** Auth can be an OAuth access token or { apiKey: string } */
+export type YTAuth = string | { apiKey: string };
+
+async function ytFetch(
   path: string,
   params: Record<string, string>,
-  accessToken: string
+  auth: YTAuth
 ) {
   const url = new URL(`${YT_API}/${path}`);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+
+  const headers: Record<string, string> = {};
+  if (typeof auth === "string") {
+    headers["Authorization"] = `Bearer ${auth}`;
+  } else {
+    url.searchParams.set("key", auth.apiKey);
+  }
+
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`YouTube API error (${res.status}): ${text}`);
   }
   return res.json();
+}
+
+/** @deprecated Use ytFetch instead */
+async function ytFetchOAuth(
+  path: string,
+  params: Record<string, string>,
+  accessToken: string
+) {
+  return ytFetch(path, params, accessToken);
 }
 
 // --- Types ---
@@ -77,7 +95,7 @@ export async function fetchMyChannel(
 
 export async function resolveChannel(
   channelUrl: string,
-  accessToken: string
+  auth: YTAuth
 ): Promise<ChannelInfo> {
   const url = new URL(channelUrl);
   const path = url.pathname;
@@ -102,7 +120,7 @@ export async function resolveChannel(
     throw new Error(`Unrecognized YouTube channel URL format: ${channelUrl}`);
   }
 
-  const data = await ytFetchOAuth("channels", params, accessToken);
+  const data = await ytFetch("channels", params, auth);
 
   if (!data.items?.length) {
     throw new Error(`Channel not found for URL: ${channelUrl}`);
@@ -124,7 +142,7 @@ export async function resolveChannel(
 
 export async function fetchChannelPlaylists(
   channelId: string,
-  accessToken: string
+  auth: YTAuth
 ): Promise<PlaylistInfo[]> {
   const playlists: PlaylistInfo[] = [];
   let pageToken: string | undefined;
@@ -137,7 +155,7 @@ export async function fetchChannelPlaylists(
     };
     if (pageToken) params.pageToken = pageToken;
 
-    const data = await ytFetchOAuth("playlists", params, accessToken);
+    const data = await ytFetch("playlists", params, auth);
 
     for (const item of data.items ?? []) {
       playlists.push({
@@ -169,7 +187,7 @@ function parseDuration(iso8601: string): number | null {
 
 export async function fetchPlaylistVideos(
   playlistId: string,
-  accessToken: string
+  auth: YTAuth
 ): Promise<VideoInfo[]> {
   const videos: VideoInfo[] = [];
   let pageToken: string | undefined;
@@ -182,7 +200,7 @@ export async function fetchPlaylistVideos(
     };
     if (pageToken) params.pageToken = pageToken;
 
-    const data = await ytFetchOAuth("playlistItems", params, accessToken);
+    const data = await ytFetch("playlistItems", params, auth);
 
     for (const item of data.items ?? []) {
       if (
@@ -210,20 +228,20 @@ export async function fetchPlaylistVideos(
 
 export async function fetchVideoDetails(
   videoIds: string[],
-  accessToken: string
+  auth: YTAuth
 ): Promise<Map<string, { durationSeconds: number | null; publishedAt: string | null; description: string | null }>> {
   const result = new Map<string, { durationSeconds: number | null; publishedAt: string | null; description: string | null }>();
 
   // YouTube API allows up to 50 IDs per request
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50);
-    const data = await ytFetchOAuth(
+    const data = await ytFetch(
       "videos",
       {
         part: "contentDetails,snippet",
         id: batch.join(","),
       },
-      accessToken
+      auth
     );
 
     for (const item of data.items ?? []) {

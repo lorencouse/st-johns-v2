@@ -4,12 +4,18 @@ import { sanitizeLocalRedirectPath } from "@/lib/security";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+  searchParams: Promise<{
+    callbackUrl?: string | string[];
+    auth_error?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const callbackUrl = Array.isArray(params.callbackUrl)
     ? params.callbackUrl[0]
     : params.callbackUrl;
+  const authError = Array.isArray(params.auth_error)
+    ? params.auth_error[0]
+    : params.auth_error;
   const redirectTo = sanitizeLocalRedirectPath(callbackUrl, "/app");
 
   return (
@@ -22,6 +28,11 @@ export default async function SignInPage({
             YouTube channel later in Settings.
           </p>
         </div>
+        {authError === "access_denied" && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Google sign-in was canceled. You can try again whenever you&apos;re ready.
+          </div>
+        )}
         <form
           action={async () => {
             "use server";

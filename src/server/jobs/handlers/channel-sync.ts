@@ -18,6 +18,7 @@ import {
   fetchChannelPlaylists,
   fetchPlaylistVideos,
   fetchVideoDetails,
+  type YTAuth,
 } from "@/server/youtube/api";
 
 export interface ChannelSyncPayload {
@@ -26,11 +27,18 @@ export interface ChannelSyncPayload {
   userId: string;
   runId: string;
   channelUrl?: string; // If omitted, fetches user's own channel
+  useApiKey?: boolean; // If true, use YouTube API key instead of OAuth
 }
 
 export async function handleChannelSync(payload: ChannelSyncPayload) {
-  const { workspaceId, integrationConnectionId, userId, runId, channelUrl } =
-    payload;
+  const {
+    workspaceId,
+    integrationConnectionId,
+    userId,
+    runId,
+    channelUrl,
+    useApiKey,
+  } = payload;
 
   // Mark run as running
   await db
@@ -54,16 +62,30 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       throw new Error("Integration connection not found for workspace");
     }
 
-    const accessToken = await getGoogleAccessToken(userId);
-    if (!accessToken) {
-      throw new Error("No valid Google access token. Please re-authenticate.");
+    // Determine auth method: API key for external channels, OAuth for own channel
+    let auth: YTAuth;
+    if (useApiKey && channelUrl) {
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        throw new Error("YOUTUBE_API_KEY not configured");
+      }
+      auth = { apiKey };
+      console.log(`[channel-sync] Using API key for external channel sync`);
+    } else {
+      const accessToken = await getGoogleAccessToken(userId);
+      if (!accessToken) {
+        throw new Error(
+          "No valid Google access token. Please re-authenticate."
+        );
+      }
+      auth = accessToken;
     }
 
     // 1. Resolve channel
     console.log(`[channel-sync] Resolving channel for run ${runId}`);
     const channelInfo = channelUrl
-      ? await resolveChannel(channelUrl, accessToken)
-      : await fetchMyChannel(accessToken);
+      ? await resolveChannel(channelUrl, auth)
+      : await fetchMyChannel(auth as string);
 
     // 2. Upsert global channel record
     await db
@@ -110,7 +132,7 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
     console.log(`[channel-sync] Fetching playlists for ${channelInfo.title}`);
     const playlists = await fetchChannelPlaylists(
       channelInfo.youtubeId,
-      accessToken
+      auth
     );
 
     // Add uploads playlist if available
@@ -171,12 +193,12 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       console.log(`[channel-sync] Fetching videos from uploads playlist`);
       const videos = await fetchPlaylistVideos(
         channelInfo.uploadsPlaylistId,
-        accessToken
+        auth
       );
 
       // Fetch video details (duration, published date) in batches
       const videoIds = videos.map((v) => v.youtubeId);
-      const details = await fetchVideoDetails(videoIds, accessToken);
+      const details = await fetchVideoDetails(videoIds, auth);
 
       for (const video of videos) {
         const detail = details.get(video.youtubeId);
@@ -222,12 +244,7 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
             ingestStatus: "metadata_synced",
             addedByUserId: userId,
           })
-          .onConflictDoUpdate({
-            target: [workspaceVideos.workspaceId, workspaceVideos.videoId],
-            set: {
-              // Don't overwrite ingestStatus if already further along
-            },
-          });
+          .onConflictDoNothing();
 
         // Link video to uploads playlist
         await db

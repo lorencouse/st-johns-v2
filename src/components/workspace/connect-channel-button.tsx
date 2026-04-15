@@ -1,20 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { RunStatus } from "@/components/studio/run-status";
 
 interface ConnectChannelButtonProps {
   workspaceId: string;
+  workspaceSlug: string;
 }
 
 export function ConnectChannelButton({
   workspaceId,
+  workspaceSlug,
 }: ConnectChannelButtonProps) {
-  const router = useRouter();
   const [channelUrl, setChannelUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [runId, setRunId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function handleConnect(useOwn: boolean) {
@@ -34,27 +32,13 @@ export function ConnectChannelButton({
         return;
       }
 
-      const data = await res.json();
-      setRunId(data.runId);
+      setChannelUrl("");
+      window.location.assign(`/w/${workspaceSlug}/library`);
     } catch {
       setError("Something went wrong");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (runId) {
-    return (
-      <div className="space-y-3">
-        <RunStatus
-          runId={runId}
-          onComplete={() => {
-            router.refresh();
-            setRunId(null);
-          }}
-        />
-      </div>
-    );
   }
 
   return (

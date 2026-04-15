@@ -221,7 +221,7 @@ export function TranscriptReviewClient({
     setEndMs(null);
   }, []);
 
-  // Save reviewed transcript and generate project
+  // Save reviewed transcript and create the initial project
   async function handleSaveAndGenerate() {
     setSaving(true);
     setError("");
@@ -249,7 +249,7 @@ export function TranscriptReviewClient({
         return;
       }
 
-      // 2. Generate the project
+      // 2. Create the project from the reviewed transcript
       const genRes = await fetch(
         `/api/workspaces/${workspaceId}/videos/${videoId}/generate`,
         { method: "POST" }
@@ -274,7 +274,7 @@ export function TranscriptReviewClient({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center space-y-4">
-          <h2 className="text-lg font-semibold">Generating project...</h2>
+          <h2 className="text-lg font-semibold">Starting project...</h2>
           <RunStatus
             runId={generateRunId}
             onComplete={() => {
@@ -300,7 +300,9 @@ export function TranscriptReviewClient({
           </Link>
           <div>
             <h1 className="text-sm font-semibold">Review Transcript</h1>
-            <p className="text-xs text-zinc-500">{videoTitle}</p>
+            <p className="text-xs text-zinc-500">
+              {videoTitle}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -334,7 +336,7 @@ export function TranscriptReviewClient({
             ) : (
               <Sparkles className="h-3 w-3" />
             )}
-            Save & Generate
+            Save Transcript & Start Project
           </button>
         </div>
       </div>

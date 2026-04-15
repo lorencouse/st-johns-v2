@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { VideoActions } from "./video-actions";
 
 interface VideoRowProps {
@@ -74,12 +73,12 @@ export function VideoRow({
           className="flex items-center gap-3 text-left hover:opacity-80"
         >
           {video.thumbnailUrl && (
-            <Image
+            <img
               src={video.thumbnailUrl}
               alt=""
-              width={64}
-              height={36}
               className="h-9 w-16 shrink-0 rounded object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
             />
           )}
           <div>
@@ -88,8 +87,8 @@ export function VideoRow({
               {project
                 ? "Open the project workspace"
                 : video.ingestStatus === "captions_available"
-                  ? "Review transcript and start drafting"
-                  : "Fetch captions to start the editorial flow"}
+                  ? "Review transcript and start a project"
+                  : "Imported to the library and ready for captions when you choose"}
             </p>
           </div>
         </button>

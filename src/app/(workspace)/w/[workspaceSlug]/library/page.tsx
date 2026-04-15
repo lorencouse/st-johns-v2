@@ -3,12 +3,16 @@ import { db } from "@/server/db";
 import {
   sourceVideos,
   youtubeChannels,
+  youtubePlaylists,
   workspaceVideos,
   workspaceChannels,
+  workspacePlaylists,
   contentProjects,
 } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { LibraryDashboard } from "@/components/library/library-dashboard";
+
+export const dynamic = "force-dynamic";
 
 export default async function LibraryPage({
   params,
@@ -39,6 +43,28 @@ export default async function LibraryPage({
     .from(workspaceChannels)
     .where(eq(workspaceChannels.workspaceId, workspace.id));
 
+  const rawPlaylists = await db
+    .select({
+      id: youtubePlaylists.id,
+      title: youtubePlaylists.title,
+      kind: youtubePlaylists.kind,
+      itemCount: youtubePlaylists.itemCount,
+      channelTitle: youtubeChannels.title,
+    })
+    .from(workspacePlaylists)
+    .innerJoin(
+      youtubePlaylists,
+      eq(youtubePlaylists.id, workspacePlaylists.playlistId)
+    )
+    .leftJoin(youtubeChannels, eq(youtubeChannels.id, youtubePlaylists.channelId))
+    .where(eq(workspacePlaylists.workspaceId, workspace.id));
+
+  const playlists = rawPlaylists.sort((a, b) => {
+    if (a.kind === "uploads" && b.kind !== "uploads") return -1;
+    if (a.kind !== "uploads" && b.kind === "uploads") return 1;
+    return a.title.localeCompare(b.title);
+  });
+
   // Get project status for each video
   const projectsByVideo = new Map<
     string,
@@ -66,6 +92,7 @@ export default async function LibraryPage({
       workspaceSlug={workspaceSlug}
       workspaceName={workspace.name}
       channelCount={channels.length}
+      playlists={playlists}
       syncRunId={syncRunId ?? null}
       videos={videos.map(({ video, channelTitle, ingestStatus }) => ({
         id: video.id,
