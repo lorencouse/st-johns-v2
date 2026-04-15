@@ -88,7 +88,7 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       description: "Grant YouTube access so the workspace can sync your library.",
       done: channelCount > 0,
       actionLabel: "Open integrations",
-      href: "settings",
+      href: "settings/integrations",
     },
     {
       id: "sync_videos",
@@ -96,7 +96,7 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       description: "Run a channel sync to populate the library with recent uploads.",
       done: videos.length > 0,
       actionLabel: "Open integrations",
-      href: "settings",
+      href: "settings/integrations",
     },
     {
       id: "fetch_captions",
