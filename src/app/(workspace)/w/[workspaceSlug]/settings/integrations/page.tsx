@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import Image from "next/image";
 import { ConnectChannelButton } from "@/components/workspace/connect-channel-button";
 import { ReconnectGoogleButton } from "@/components/workspace/reconnect-google-button";
+import { RemoveChannelButton } from "@/components/workspace/remove-channel-button";
 
 export default async function IntegrationsPage({
   params,
@@ -59,9 +60,9 @@ export default async function IntegrationsPage({
               {channels.map((channel) => (
                 <div
                   key={channel.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+                  className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     {channel.thumbnailUrl && (
                       <Image
                         src={channel.thumbnailUrl}
@@ -78,16 +79,23 @@ export default async function IntegrationsPage({
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-                      {channel.syncStatus}
-                    </span>
-                    {channel.lastSyncedAt && (
-                      <span className="text-xs text-zinc-400">
-                        Last synced{" "}
-                        {new Date(channel.lastSyncedAt).toLocaleDateString()}
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                        {channel.syncStatus}
                       </span>
-                    )}
+                      {channel.lastSyncedAt && (
+                        <span className="text-xs text-zinc-400">
+                          Last synced{" "}
+                          {new Date(channel.lastSyncedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    <RemoveChannelButton
+                      workspaceId={workspace.id}
+                      channelId={channel.id}
+                      channelTitle={channel.title}
+                    />
                   </div>
                 </div>
               ))}
