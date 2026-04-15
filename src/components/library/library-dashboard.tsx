@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
+import { RunStatus } from "@/components/studio/run-status";
 import { VideoRow } from "./video-row";
 
 type FilterKey =
@@ -28,6 +30,7 @@ interface LibraryDashboardProps {
   workspaceSlug: string;
   workspaceName: string;
   channelCount: number;
+  syncRunId: string | null;
   videos: LibraryVideo[];
 }
 
@@ -140,10 +143,13 @@ export function LibraryDashboard({
   workspaceSlug,
   workspaceName,
   channelCount,
+  syncRunId,
   videos,
 }: LibraryDashboardProps) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [pendingRunId, setPendingRunId] = useState(syncRunId);
   const deferredQuery = useDeferredValue(query);
 
   const summary = useMemo(
@@ -173,6 +179,32 @@ export function LibraryDashboard({
 
   return (
     <div className="p-6">
+      {pendingRunId && (
+        <section className="mb-6 rounded-[24px] border border-blue-200 bg-blue-50 p-4 shadow-sm dark:border-blue-900/70 dark:bg-blue-950/30">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Importing channel videos
+              </p>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-200">
+                The channel link succeeded. This page will refresh as soon as the
+                initial video sync finishes.
+              </p>
+            </div>
+            <div className="min-w-[220px]">
+              <RunStatus
+                runId={pendingRunId}
+                onComplete={() => {
+                  setPendingRunId(null);
+                  router.replace(`/w/${workspaceSlug}/library`);
+                  router.refresh();
+                }}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-[radial-gradient(circle_at_top_left,_rgba(29,78,216,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(244,244,245,0.96))] p-6 shadow-sm dark:border-zinc-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.15),_transparent_30%),linear-gradient(135deg,_rgba(9,9,11,0.98),_rgba(24,24,27,0.96))]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">

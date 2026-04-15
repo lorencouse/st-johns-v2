@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
   }
 
   const callbackUrl = `${baseUrl}/api/auth/youtube-callback`;
+  const redirectUrl = new URL(redirectPath, baseUrl);
 
   try {
     // Exchange authorization code for tokens
@@ -175,6 +176,8 @@ export async function GET(req: NextRequest) {
           runId: run.id,
         });
 
+        redirectUrl.searchParams.set("syncRunId", run.id);
+
         console.log(
           `[youtube-callback] Auto-triggered channel sync for workspace ${workspaceId}, run ${run.id}`
         );
@@ -187,7 +190,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(new URL(redirectPath, baseUrl));
+    return NextResponse.redirect(redirectUrl);
   } catch (err) {
     console.error("[youtube-callback] Error:", err);
     const url = new URL(redirectPath, baseUrl);

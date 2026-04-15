@@ -12,10 +12,13 @@ import { LibraryDashboard } from "@/components/library/library-dashboard";
 
 export default async function LibraryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>;
+  searchParams: Promise<{ syncRunId?: string }>;
 }) {
   const { workspaceSlug } = await params;
+  const { syncRunId } = await searchParams;
   const { workspace } = await requireWorkspaceMember(workspaceSlug);
 
   const videos = await db
@@ -63,6 +66,7 @@ export default async function LibraryPage({
       workspaceSlug={workspaceSlug}
       workspaceName={workspace.name}
       channelCount={channels.length}
+      syncRunId={syncRunId ?? null}
       videos={videos.map(({ video, channelTitle, ingestStatus }) => ({
         id: video.id,
         title: video.title,
