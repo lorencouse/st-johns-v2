@@ -5,7 +5,7 @@ import { workspaceMembers } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { sanitizeLocalRedirectPath } from "@/lib/security";
+import { sanitizeLocalRedirectPath, getRequestBaseUrl } from "@/lib/security";
 
 /**
  * Initiates an incremental OAuth flow to request the youtube.force-ssl scope.
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = getRequestBaseUrl(req);
   const callbackUrl = `${baseUrl}/api/auth/youtube-callback`;
 
   const params = new URLSearchParams({

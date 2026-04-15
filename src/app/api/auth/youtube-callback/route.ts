@@ -10,7 +10,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { channelSyncQueue } from "@/server/jobs/queue";
-import { sanitizeLocalRedirectPath } from "@/lib/security";
+import { sanitizeLocalRedirectPath, getRequestBaseUrl } from "@/lib/security";
 
 /**
  * Handles the OAuth callback after the user grants youtube.force-ssl scope.
@@ -18,9 +18,11 @@ import { sanitizeLocalRedirectPath } from "@/lib/security";
  * and automatically triggers a channel sync if a workspace context is available.
  */
 export async function GET(req: NextRequest) {
+  const baseUrl = getRequestBaseUrl(req);
+
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.redirect(new URL("/signin", req.url));
+    return NextResponse.redirect(new URL("/signin", baseUrl));
   }
 
   const cookieStore = await cookies();
@@ -43,14 +45,14 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error("[youtube-callback] OAuth error:", error);
-    const url = new URL(redirectPath, req.url);
+    const url = new URL(redirectPath, baseUrl);
     url.searchParams.set("youtube_error", error);
     return NextResponse.redirect(url);
   }
 
   if (!code || !state || state !== storedState) {
     console.error("[youtube-callback] Invalid state or missing code");
-    const url = new URL(redirectPath, req.url);
+    const url = new URL(redirectPath, baseUrl);
     url.searchParams.set("youtube_error", "invalid_state");
     return NextResponse.redirect(url);
   }
@@ -64,7 +66,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const callbackUrl = `${baseUrl}/api/auth/youtube-callback`;
 
   try {
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
     if (!tokenRes.ok) {
       const errText = await tokenRes.text();
       console.error("[youtube-callback] Token exchange failed:", errText);
-      const url = new URL(redirectPath, req.url);
+      const url = new URL(redirectPath, baseUrl);
       url.searchParams.set("youtube_error", "token_exchange_failed");
       return NextResponse.redirect(url);
     }
@@ -129,7 +130,7 @@ export async function GET(req: NextRequest) {
           .limit(1);
 
         if (!membership) {
-          const url = new URL(redirectPath, req.url);
+          const url = new URL(redirectPath, baseUrl);
           url.searchParams.set("youtube_error", "workspace_access_denied");
           return NextResponse.redirect(url);
         }
@@ -186,10 +187,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(new URL(redirectPath, req.url));
+    return NextResponse.redirect(new URL(redirectPath, baseUrl));
   } catch (err) {
     console.error("[youtube-callback] Error:", err);
-    const url = new URL(redirectPath, req.url);
+    const url = new URL(redirectPath, baseUrl);
     url.searchParams.set("youtube_error", "unexpected_error");
     return NextResponse.redirect(url);
   }
