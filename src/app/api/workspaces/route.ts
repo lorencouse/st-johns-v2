@@ -6,7 +6,8 @@ import {
   workspaceMembers,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import { runChannelSyncNow } from "@/server/youtube/run-channel-sync";
+import { getGoogleAccessToken } from "@/server/auth/google-token";
+import { enqueueChannelSync } from "@/server/youtube/run-channel-sync";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -56,18 +57,23 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-connect YouTube when the current account already has the needed scope.
+  let syncRunId: string | null = null;
   try {
-    await runChannelSyncNow({
-      workspaceId: workspace.id,
-      userId: session.user.id,
-      inputJson: { autoTriggered: true, workspaceCreated: true },
-    });
+    const accessToken = await getGoogleAccessToken(session.user.id);
+    if (accessToken) {
+      const result = await enqueueChannelSync({
+        workspaceId: workspace.id,
+        userId: session.user.id,
+        inputJson: { autoTriggered: true, workspaceCreated: true },
+      });
+      syncRunId = result.runId;
+    }
   } catch (err) {
-    // Don't fail workspace creation if YouTube sync can't complete yet.
+    // Don't fail workspace creation if YouTube sync can't be enqueued yet.
     console.error("[workspace] Failed to auto-connect YouTube:", err);
   }
 
-  return NextResponse.json(workspace, { status: 201 });
+  return NextResponse.json({ ...workspace, syncRunId }, { status: 201 });
 }
 
 export async function GET() {

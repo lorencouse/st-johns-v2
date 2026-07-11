@@ -250,19 +250,7 @@ export function TranscriptReviewClient({
       }
 
       // 2. Create the project from the reviewed transcript
-      const genRes = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/generate`,
-        { method: "POST" }
-      );
-
-      if (!genRes.ok) {
-        const data = await genRes.json();
-        setError(data.error || "Failed to start generation");
-        return;
-      }
-
-      const data = await genRes.json();
-      setGenerateRunId(data.runId);
+      await startGenerate();
     } catch {
       setError("Something went wrong");
     } finally {
@@ -270,17 +258,45 @@ export function TranscriptReviewClient({
     }
   }
 
+  // Kick off draft generation (the transcript must already be saved)
+  async function startGenerate() {
+    const genRes = await fetch(
+      `/api/workspaces/${workspaceId}/videos/${videoId}/generate`,
+      { method: "POST" }
+    );
+
+    if (!genRes.ok) {
+      const data = await genRes.json();
+      setError(data.error || "Failed to start generation");
+      return;
+    }
+
+    const data = await genRes.json();
+    setGenerateRunId(data.runId);
+  }
+
   if (generateRunId) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center space-y-4">
-          <h2 className="text-lg font-semibold">Starting project...</h2>
+          <h2 className="text-lg font-semibold">Generating your draft...</h2>
           <RunStatus
             runId={generateRunId}
-            onComplete={() => {
-              router.push(`/w/${workspaceSlug}/library`);
+            onSuccess={(run) => {
+              const projectId = (run.outputJson as { projectId?: string })
+                ?.projectId;
+              router.push(
+                projectId
+                  ? `/w/${workspaceSlug}/projects/${projectId}`
+                  : `/w/${workspaceSlug}/library`
+              );
               router.refresh();
             }}
+            onRetry={() => {
+              setGenerateRunId(null);
+              void startGenerate();
+            }}
+            onDismiss={() => setGenerateRunId(null)}
           />
         </div>
       </div>

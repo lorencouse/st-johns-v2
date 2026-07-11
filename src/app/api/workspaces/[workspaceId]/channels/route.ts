@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember, getUserRole } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
   youtubeChannels,
   workspaceChannels,
 } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import {
-  ChannelSyncRunError,
-  runChannelSyncNow,
-} from "@/server/youtube/run-channel-sync";
+import { getGoogleAccessToken } from "@/server/auth/google-token";
+import { enqueueChannelSync } from "@/server/youtube/run-channel-sync";
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   const { workspaceId } = await params;
@@ -23,33 +21,25 @@ export async function POST(
     return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
-  const body = await req.json();
-  const { channelUrl } = body; // optional - if omitted, syncs user's own channel
-
-  // Admin/premium users can sync external channels via API key
-  const userRole = await getUserRole(ctx.userId);
-  const useApiKey =
-    !!channelUrl && ["admin", "premium"].includes(userRole);
-
-  try {
-    const result = await runChannelSyncNow({
-      workspaceId,
-      userId: ctx.userId,
-      channelUrl: channelUrl || undefined,
-      useApiKey,
-    });
-
-    return NextResponse.json(result);
-  } catch (error) {
-    if (error instanceof ChannelSyncRunError) {
-      return NextResponse.json(
-        { error: error.message, runId: error.runId },
-        { status: 500 }
-      );
-    }
-
-    throw error;
+  // Owner-only model: syncing requires the caller's own YouTube grant.
+  // Without it, the client should send the user through the OAuth flow.
+  const accessToken = await getGoogleAccessToken(ctx.userId);
+  if (!accessToken) {
+    return NextResponse.json(
+      {
+        error: "YouTube is not connected for your account",
+        code: "youtube_not_connected",
+      },
+      { status: 409 }
+    );
   }
+
+  const result = await enqueueChannelSync({
+    workspaceId,
+    userId: ctx.userId,
+  });
+
+  return NextResponse.json(result, { status: 202 });
 }
 
 export async function GET(

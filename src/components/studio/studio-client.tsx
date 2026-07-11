@@ -49,7 +49,13 @@ export function StudioClient({
 }: StudioClientProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [exportRunId, setExportRunId] = useState<string | null>(null);
+  const [lastExportFormat, setLastExportFormat] = useState<
+    "html" | "markdown"
+  >("html");
+  const [generateRunId, setGenerateRunId] = useState<string | null>(null);
+  const [generateLoading, setGenerateLoading] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,7 +67,7 @@ export function StudioClient({
       if (!draft || !canEdit) return;
       setSaving(true);
       try {
-        await fetch(
+        const res = await fetch(
           `/api/workspaces/${workspaceId}/projects/${projectId}/drafts`,
           {
             method: "PATCH",
@@ -73,8 +79,10 @@ export function StudioClient({
             }),
           }
         );
+        setSaveFailed(!res.ok);
       } catch {
-        // Silent fail for auto-save
+        // Editing continues locally; the next keystroke retries the save.
+        setSaveFailed(true);
       } finally {
         setSaving(false);
       }
@@ -84,6 +92,7 @@ export function StudioClient({
 
   async function handleExport(format: "html" | "markdown") {
     setError("");
+    setLastExportFormat(format);
     try {
       const res = await fetch(
         `/api/workspaces/${workspaceId}/projects/${projectId}/export`,
@@ -102,6 +111,28 @@ export function StudioClient({
       setExportRunId(data.runId);
     } catch {
       setError("Export failed");
+    }
+  }
+
+  async function handleGenerate() {
+    setGenerateLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/videos/${videoId}/generate`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to start generation");
+        return;
+      }
+      const data = await res.json();
+      setGenerateRunId(data.runId);
+    } catch {
+      setError("Failed to start generation");
+    } finally {
+      setGenerateLoading(false);
     }
   }
 
@@ -175,6 +206,12 @@ export function StudioClient({
               {saving && (
                 <span className="text-xs text-zinc-400">Saving...</span>
               )}
+              {!saving && saveFailed && (
+                <span className="text-xs font-medium text-red-600">
+                  Save failed — check your connection; edits retry on your next
+                  change
+                </span>
+              )}
             </div>
           </div>
 
@@ -208,11 +245,35 @@ export function StudioClient({
               />
             </div>
           ) : (
-            <div className="mt-16 text-center">
+            <div className="mt-16 space-y-4 text-center">
               <p className="text-zinc-500">
-                No draft generated yet. Run the content pipeline from the
-                Library.
+                No draft generated yet for this video.
               </p>
+              {canEdit && !generateRunId && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={generateLoading}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {generateLoading ? "Starting..." : "Generate draft"}
+                </button>
+              )}
+              {generateRunId && (
+                <div className="mx-auto max-w-sm">
+                  <RunStatus
+                    runId={generateRunId}
+                    onSuccess={() => {
+                      setGenerateRunId(null);
+                      router.refresh();
+                    }}
+                    onRetry={() => {
+                      setGenerateRunId(null);
+                      void handleGenerate();
+                    }}
+                    onDismiss={() => setGenerateRunId(null)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -224,10 +285,15 @@ export function StudioClient({
             <div className="mt-4">
               <RunStatus
                 runId={exportRunId}
-                onComplete={() => {
+                onSuccess={() => {
                   setExportRunId(null);
                   router.refresh();
                 }}
+                onRetry={() => {
+                  setExportRunId(null);
+                  void handleExport(lastExportFormat);
+                }}
+                onDismiss={() => setExportRunId(null)}
               />
             </div>
           )}

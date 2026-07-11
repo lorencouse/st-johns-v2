@@ -8,10 +8,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { sanitizeLocalRedirectPath, getRequestBaseUrl } from "@/lib/security";
-import {
-  ChannelSyncRunError,
-  runChannelSyncNow,
-} from "@/server/youtube/run-channel-sync";
+import { enqueueChannelSync } from "@/server/youtube/run-channel-sync";
 
 /**
  * Handles the OAuth callback after the user grants youtube.force-ssl scope.
@@ -137,23 +134,24 @@ export async function GET(req: NextRequest) {
           return NextResponse.redirect(url);
         }
 
-        const result = await runChannelSyncNow({
+        const result = await enqueueChannelSync({
           workspaceId,
           userId: session.user.id,
           inputJson: { autoTriggered: true },
         });
 
+        // Surface the import banner on the destination page
+        redirectUrl.searchParams.set("syncRunId", result.runId);
+
         console.log(
-          `[youtube-callback] Completed channel sync for workspace ${workspaceId}, run ${result.runId}`
+          `[youtube-callback] Enqueued channel sync for workspace ${workspaceId}, run ${result.runId}`
         );
       } catch (syncErr) {
-        if (syncErr instanceof ChannelSyncRunError) {
-          redirectUrl.searchParams.set("youtube_error", "channel_sync_failed");
-        }
+        redirectUrl.searchParams.set("youtube_error", "channel_sync_failed");
 
-        // Don't fail the whole callback if sync fails
+        // Don't fail the whole callback if the sync can't be enqueued
         console.error(
-          "[youtube-callback] Failed to complete channel sync:",
+          "[youtube-callback] Failed to enqueue channel sync:",
           syncErr
         );
       }

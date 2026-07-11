@@ -15,6 +15,13 @@
       "when": 1775173120746,
       "tag": "0001_sharp_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783795794183,
+      "tag": "0002_slippery_shiver_man",
+      "breakpoints": true
     }
   ]
 }

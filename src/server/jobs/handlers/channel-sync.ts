@@ -14,11 +14,9 @@ import { eq, and } from "drizzle-orm";
 import { getGoogleAccessToken } from "@/server/auth/google-token";
 import {
   fetchMyChannel,
-  resolveChannel,
   fetchChannelPlaylists,
   fetchPlaylistVideos,
   fetchVideoDetails,
-  type YTAuth,
 } from "@/server/youtube/api";
 
 export interface ChannelSyncPayload {
@@ -26,19 +24,10 @@ export interface ChannelSyncPayload {
   integrationConnectionId: string;
   userId: string;
   runId: string;
-  channelUrl?: string; // If omitted, fetches user's own channel
-  useApiKey?: boolean; // If true, use YouTube API key instead of OAuth
 }
 
 export async function handleChannelSync(payload: ChannelSyncPayload) {
-  const {
-    workspaceId,
-    integrationConnectionId,
-    userId,
-    runId,
-    channelUrl,
-    useApiKey,
-  } = payload;
+  const { workspaceId, integrationConnectionId, userId, runId } = payload;
 
   // Mark run as running
   await db
@@ -62,30 +51,17 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
       throw new Error("Integration connection not found for workspace");
     }
 
-    // Determine auth method: API key for external channels, OAuth for own channel
-    let auth: YTAuth;
-    if (useApiKey && channelUrl) {
-      const apiKey = process.env.YOUTUBE_API_KEY;
-      if (!apiKey) {
-        throw new Error("YOUTUBE_API_KEY not configured");
-      }
-      auth = { apiKey };
-      console.log(`[channel-sync] Using API key for external channel sync`);
-    } else {
-      const accessToken = await getGoogleAccessToken(userId);
-      if (!accessToken) {
-        throw new Error(
-          "No valid Google access token. Please re-authenticate."
-        );
-      }
-      auth = accessToken;
+    // Owner-only: the sync always targets the connecting user's own channel.
+    const auth = await getGoogleAccessToken(userId);
+    if (!auth) {
+      throw new Error(
+        "YouTube connection is no longer valid. Reconnect YouTube and try again."
+      );
     }
 
-    // 1. Resolve channel
+    // 1. Resolve the user's own channel
     console.log(`[channel-sync] Resolving channel for run ${runId}`);
-    const channelInfo = channelUrl
-      ? await resolveChannel(channelUrl, auth)
-      : await fetchMyChannel(auth as string);
+    const channelInfo = await fetchMyChannel(auth);
 
     // 2. Upsert global channel record
     await db
@@ -289,17 +265,9 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
 
     console.log(`[channel-sync] Completed run ${runId}`);
   } catch (error) {
+    // Failure state (run + channel syncStatus) is written by the worker's
+    // final-failure handler so retries don't flicker the run to failed.
     console.error(`[channel-sync] Failed run ${runId}:`, error);
-
-    await db
-      .update(appRuns)
-      .set({
-        status: "failed",
-        finishedAt: new Date(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-      .where(eq(appRuns.id, runId));
-
     throw error;
   }
 }

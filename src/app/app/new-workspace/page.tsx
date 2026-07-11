@@ -39,7 +39,10 @@ export default function NewWorkspacePage() {
       }
 
       const workspace = await res.json();
-      router.push(`/w/${workspace.slug}/library`);
+      const params = workspace.syncRunId
+        ? `?syncRunId=${workspace.syncRunId}`
+        : "";
+      router.push(`/w/${workspace.slug}/library${params}`);
     } catch {
       setError("Something went wrong");
     } finally {

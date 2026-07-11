@@ -1,36 +1,31 @@
 import { db } from "@/server/db";
 import { appRuns, integrationConnections } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
-import {
-  handleChannelSync,
-  type ChannelSyncPayload,
-} from "@/server/jobs/handlers/channel-sync";
+import { channelSyncQueue } from "@/server/jobs/queue";
+import { findActiveRun } from "@/server/jobs/runs";
+import type { ChannelSyncPayload } from "@/server/jobs/handlers/channel-sync";
 
-interface RunChannelSyncNowInput {
+interface EnqueueChannelSyncInput {
   workspaceId: string;
   userId: string;
-  channelUrl?: string;
-  useApiKey?: boolean;
   inputJson?: Record<string, unknown>;
 }
 
-export class ChannelSyncRunError extends Error {
-  constructor(
-    message: string,
-    readonly runId: string
-  ) {
-    super(message);
-    this.name = "ChannelSyncRunError";
-  }
-}
-
-export async function runChannelSyncNow({
+/**
+ * Enqueue a background sync of the user's own YouTube channel. Returns the
+ * run to poll. If a sync is already queued/running for the workspace, attaches
+ * to it instead of enqueueing a duplicate.
+ */
+export async function enqueueChannelSync({
   workspaceId,
   userId,
-  channelUrl,
-  useApiKey,
   inputJson,
-}: RunChannelSyncNowInput) {
+}: EnqueueChannelSyncInput) {
+  const active = await findActiveRun(workspaceId, "channel_sync", null);
+  if (active) {
+    return { runId: active.id };
+  }
+
   let [connection] = await db
     .select()
     .from(integrationConnections)
@@ -47,6 +42,13 @@ export async function runChannelSyncNow({
         grantedByUserId: userId,
       })
       .returning();
+  } else if (connection.status !== "active") {
+    // A sync is only enqueued when the caller holds a valid token, so the
+    // connection is usable again.
+    await db
+      .update(integrationConnections)
+      .set({ status: "active", grantedByUserId: userId })
+      .where(eq(integrationConnections.id, connection.id));
   }
 
   const [run] = await db
@@ -57,10 +59,7 @@ export async function runChannelSyncNow({
       status: "queued",
       subjectType: "youtube_channel",
       triggeredByUserId: userId,
-      inputJson: {
-        channelUrl: channelUrl || null,
-        ...(inputJson ?? {}),
-      },
+      inputJson: inputJson ?? {},
     })
     .returning();
 
@@ -69,18 +68,8 @@ export async function runChannelSyncNow({
     integrationConnectionId: connection.id,
     userId,
     runId: run.id,
-    channelUrl,
-    useApiKey,
   };
-
-  try {
-    await handleChannelSync(payload);
-  } catch (error) {
-    throw new ChannelSyncRunError(
-      error instanceof Error ? error.message : "Channel sync failed",
-      run.id
-    );
-  }
+  await channelSyncQueue.add("sync", payload);
 
   return { runId: run.id };
 }

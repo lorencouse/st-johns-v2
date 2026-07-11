@@ -1,8 +1,29 @@
 import { db } from "@/server/db";
-import { accounts } from "@/server/db/schema";
+import { accounts, integrationConnections } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 
 const REFRESH_BUFFER_SEC = 300;
+
+/**
+ * The user's grant is dead (revoked, or expired because the OAuth app is in
+ * "Testing" status). Flag their workspace connections so the UI can prompt
+ * a reconnect instead of failing silently forever.
+ */
+async function markConnectionsInvalid(userId: string) {
+  try {
+    await db
+      .update(integrationConnections)
+      .set({ status: "invalid", updatedAt: new Date() })
+      .where(
+        and(
+          eq(integrationConnections.grantedByUserId, userId),
+          eq(integrationConnections.status, "active")
+        )
+      );
+  } catch (err) {
+    console.error("[google-token] Failed to flag invalid connections:", err);
+  }
+}
 
 export async function getGoogleAccessToken(
   userId: string
@@ -47,6 +68,9 @@ export async function getGoogleAccessToken(
         `[google-token] Refresh failed (${res.status}):`,
         await res.text()
       );
+      if (res.status === 400 || res.status === 401) {
+        await markConnectionsInvalid(userId);
+      }
       return null;
     }
 
@@ -63,6 +87,11 @@ export async function getGoogleAccessToken(
       .where(
         and(eq(accounts.userId, userId), eq(accounts.provider, "google"))
       );
+
+    await db
+      .update(integrationConnections)
+      .set({ lastValidatedAt: new Date() })
+      .where(eq(integrationConnections.grantedByUserId, userId));
 
     console.log(`[google-token] Refreshed token for user ${userId}`);
     return newAccessToken;

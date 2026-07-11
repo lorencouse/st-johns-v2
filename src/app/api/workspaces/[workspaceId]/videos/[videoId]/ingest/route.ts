@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { workspaceVideos, appRuns } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { videoIngestQueue } from "@/server/jobs/queue";
+import { findActiveRun } from "@/server/jobs/runs";
 
 export async function POST(
   _req: NextRequest,
@@ -31,6 +32,12 @@ export async function POST(
 
   if (!wsVideo) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
+  }
+
+  // Attach to an in-flight ingest instead of enqueueing a duplicate
+  const activeRun = await findActiveRun(workspaceId, "video_ingest", videoId);
+  if (activeRun) {
+    return NextResponse.json({ runId: activeRun.id }, { status: 202 });
   }
 
   // Create run

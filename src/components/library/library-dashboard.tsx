@@ -40,6 +40,7 @@ interface LibraryDashboardProps {
   channelCount: number;
   playlists: LibraryPlaylist[];
   syncRunId: string | null;
+  needsReconnect: boolean;
   videos: LibraryVideo[];
 }
 
@@ -154,6 +155,7 @@ export function LibraryDashboard({
   channelCount,
   playlists,
   syncRunId,
+  needsReconnect,
   videos,
 }: LibraryDashboardProps) {
   const router = useRouter();
@@ -189,6 +191,28 @@ export function LibraryDashboard({
 
   return (
     <div className="p-6">
+      {needsReconnect && (
+        <section className="mb-6 rounded-[24px] border border-amber-300 bg-amber-50 p-4 shadow-sm dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                YouTube connection expired
+              </p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                Google revoked or expired this workspace&apos;s YouTube access.
+                Reconnect to keep syncing videos and fetching captions.
+              </p>
+            </div>
+            <a
+              href={`/api/auth/youtube-connect?workspaceId=${workspaceId}&redirect=${encodeURIComponent(`/w/${workspaceSlug}/library`)}`}
+              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Reconnect YouTube
+            </a>
+          </div>
+        </section>
+      )}
+
       {pendingRunId && (
         <section className="mb-6 rounded-[24px] border border-blue-200 bg-blue-50 p-4 shadow-sm dark:border-blue-900/70 dark:bg-blue-950/30">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -204,7 +228,12 @@ export function LibraryDashboard({
             <div className="min-w-[220px]">
               <RunStatus
                 runId={pendingRunId}
-                onComplete={() => {
+                onSuccess={() => {
+                  setPendingRunId(null);
+                  router.replace(`/w/${workspaceSlug}/library`);
+                  router.refresh();
+                }}
+                onDismiss={() => {
                   setPendingRunId(null);
                   router.replace(`/w/${workspaceSlug}/library`);
                   router.refresh();

@@ -62,7 +62,8 @@ export function TranscriptIssues({
   }, [workspaceId, videoId]);
 
   useEffect(() => {
-    fetchIssues();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- setState happens after the fetch resolves, not synchronously
+    void fetchIssues();
   }, [fetchIssues]);
 
   async function handleSubmit(e: React.FormEvent) {

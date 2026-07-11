@@ -70,6 +70,11 @@ export const contentProjects = pgTable(
       t.status
     ),
     index("idx_content_project_source_video").on(t.sourceVideoId),
+    // One project per video per workspace — double-generate reuses it
+    unique("uq_content_project_workspace_video").on(
+      t.workspaceId,
+      t.sourceVideoId
+    ),
   ]
 );
 

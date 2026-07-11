@@ -139,17 +139,8 @@ export async function handleExportRender(payload: ExportRenderPayload) {
 
     console.log(`[export-render] Created ${format} export: ${fileName}`);
   } catch (error) {
+    // Failure state is written by the worker's final-failure handler.
     console.error(`[export-render] Failed:`, error);
-
-    await db
-      .update(appRuns)
-      .set({
-        status: "failed",
-        finishedAt: new Date(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-      .where(eq(appRuns.id, runId));
-
     throw error;
   }
 }

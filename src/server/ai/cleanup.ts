@@ -12,6 +12,8 @@ export interface CleanupResult {
   inputTokens: number | null;
   outputTokens: number | null;
   aiModel: string | null;
+  /** Chunks that fell back to local (no-AI) cleanup after exhausting retries */
+  degradedChunks: number;
 }
 
 export interface SummaryResult {
@@ -336,59 +338,95 @@ async function aiCleanupChunk(
 
 // ~200 segments ≈ ~3K input tokens → leaves plenty of room for 16K output
 const CHUNK_SIZE = 200;
+const CHUNK_ATTEMPTS = 3;
+
+async function withRetries<T>(
+  fn: () => Promise<T>,
+  attempts: number,
+  label: string
+): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `[ai-cleanup] ${label} attempt ${i + 1}/${attempts} failed: ${err instanceof Error ? err.message : err}`
+      );
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 2000 * 2 ** i));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 export async function aiCleanup(
   segments: CaptionSegment[]
 ): Promise<CleanupResult> {
   const filtered = filterNoise(segments);
-  const fallbackParagraphs = mergeIntoParagraphs(filtered);
 
-  try {
-    // Split into chunks to avoid output token truncation
-    const chunks: CaptionSegment[][] = [];
-    for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
-      chunks.push(filtered.slice(i, i + CHUNK_SIZE));
-    }
+  // Split into chunks to avoid output token truncation
+  const chunks: CaptionSegment[][] = [];
+  for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+    chunks.push(filtered.slice(i, i + CHUNK_SIZE));
+  }
 
-    console.log(`[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`);
+  console.log(`[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`);
 
-    const allParagraphs: Paragraph[] = [];
-    let totalTokensUsed = 0;
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    let aiModel: string | null = null;
+  const allParagraphs: Paragraph[] = [];
+  let totalTokensUsed = 0;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let aiModel: string | null = null;
+  let degradedChunks = 0;
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunkFallback = mergeIntoParagraphs(chunks[i]);
-      const result = await aiCleanupChunk(chunks[i], chunkFallback);
+  // A long livestream produces dozens of chunks; one transient OpenAI error
+  // must degrade only its own section, never discard the other chunks.
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkFallback = mergeIntoParagraphs(chunks[i]);
+    try {
+      const result = await withRetries(
+        () => aiCleanupChunk(chunks[i], chunkFallback),
+        CHUNK_ATTEMPTS,
+        `chunk ${i + 1}/${chunks.length}`
+      );
       allParagraphs.push(...result.paragraphs);
       totalTokensUsed += result.tokensUsed ?? 0;
       totalInputTokens += result.inputTokens ?? 0;
       totalOutputTokens += result.outputTokens ?? 0;
       aiModel = result.aiModel;
       console.log(`[ai-cleanup] Chunk ${i + 1}/${chunks.length}: ${result.paragraphs.length} paragraphs`);
+    } catch (error) {
+      degradedChunks++;
+      console.error(
+        `[ai-cleanup] Chunk ${i + 1}/${chunks.length} failed after ${CHUNK_ATTEMPTS} attempts; using local cleanup for this section:`,
+        error
+      );
+      allParagraphs.push(
+        ...chunkFallback.map((p) => ({
+          timestamp: p.timestamp,
+          text: fixPunctuation(removeFillerWords(p.text)),
+        }))
+      );
     }
-
-    return {
-      paragraphs: interpolateDuplicateTimestamps(allParagraphs),
-      tokensUsed: totalTokensUsed || null,
-      inputTokens: totalInputTokens || null,
-      outputTokens: totalOutputTokens || null,
-      aiModel,
-    };
-  } catch (error) {
-    console.error("OpenAI cleanup failed, using fallback:", error);
-    return {
-      paragraphs: fallbackParagraphs.map((p) => ({
-        timestamp: p.timestamp,
-        text: fixPunctuation(removeFillerWords(p.text)),
-      })),
-      tokensUsed: null,
-      inputTokens: null,
-      outputTokens: null,
-      aiModel: null,
-    };
   }
+
+  if (degradedChunks > 0) {
+    console.warn(
+      `[ai-cleanup] ${degradedChunks}/${chunks.length} chunk(s) used the no-AI fallback`
+    );
+  }
+
+  return {
+    paragraphs: interpolateDuplicateTimestamps(allParagraphs),
+    tokensUsed: totalTokensUsed || null,
+    inputTokens: totalInputTokens || null,
+    outputTokens: totalOutputTokens || null,
+    aiModel,
+    degradedChunks,
+  };
 }
 
 // --- Summary Generation ---
@@ -402,6 +440,52 @@ const SUMMARY_PROMPT = `You are a blog editor for a church's weekly blog posts. 
 Return a JSON object with "intro" and "summary" fields. Both should be plain text (no HTML).
 Return ONLY the JSON object. No explanation, no markdown fences.`;
 
+function parseSummaryResponse(
+  content: string
+): { intro: string; summary: string } | null {
+  const tryParse = (text: string) => {
+    try {
+      const parsed = JSON.parse(text);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        ("intro" in parsed || "summary" in parsed)
+      ) {
+        return {
+          intro: String(parsed.intro || ""),
+          summary: String(parsed.summary || ""),
+        };
+      }
+    } catch {
+      // continue
+    }
+    return null;
+  };
+
+  let result = tryParse(content);
+  if (result) return result;
+
+  // Strip markdown fences
+  const stripped = content.trim();
+  if (stripped.startsWith("```")) {
+    const lines = stripped.split("\n");
+    const inner = lines
+      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
+      .join("\n");
+    result = tryParse(inner);
+    if (result) return result;
+  }
+
+  // Regex extract {...}
+  const match = content.match(/\{[\s\S]*\}/);
+  if (match) {
+    result = tryParse(match[0]);
+    if (result) return result;
+  }
+
+  return null;
+}
+
 export async function generateSummary(
   paragraphs: Paragraph[]
 ): Promise<SummaryResult> {
@@ -412,15 +496,20 @@ export async function generateSummary(
 
   try {
     const openai = getOpenAIClient();
-    const response = await openai.chat.completions.create({
-      model: MODEL,
-      messages: [
-        { role: "system", content: SUMMARY_PROMPT },
-        { role: "user", content: truncated },
-      ],
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-    });
+    const response = await withRetries(
+      () =>
+        openai.chat.completions.create({
+          model: MODEL,
+          messages: [
+            { role: "system", content: SUMMARY_PROMPT },
+            { role: "user", content: truncated },
+          ],
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        }),
+      3,
+      "summary"
+    );
 
     const tokensUsed = response.usage?.total_tokens ?? null;
     const inputTokens = response.usage?.prompt_tokens ?? null;
@@ -428,21 +517,19 @@ export async function generateSummary(
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
+      console.error("[ai-cleanup] Summary response had no content");
       return { intro: "", summary: "", tokensUsed, inputTokens, outputTokens };
     }
 
-    try {
-      const parsed = JSON.parse(content);
-      return {
-        intro: String(parsed.intro || ""),
-        summary: String(parsed.summary || ""),
-        tokensUsed,
-        inputTokens,
-        outputTokens,
-      };
-    } catch {
+    const parsed = parseSummaryResponse(content);
+    if (!parsed) {
+      console.error(
+        `[ai-cleanup] Failed to parse summary response: ${content.slice(0, 200)}`
+      );
       return { intro: "", summary: "", tokensUsed, inputTokens, outputTokens };
     }
+
+    return { ...parsed, tokensUsed, inputTokens, outputTokens };
   } catch (error) {
     console.error("Summary generation failed:", error);
     return {

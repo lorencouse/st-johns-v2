@@ -93,24 +93,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
     console.log(`[draft-generate] Generating summary for ${video.title}`);
     const summaryResult = await generateSummary(cleanupResult.paragraphs);
 
-    // 6. Create or get content project
-    let projectId = payload.projectId;
-
-    if (!projectId) {
-      const [project] = await db
-        .insert(contentProjects)
-        .values({
-          workspaceId,
-          sourceVideoId: videoId,
-          title: video.title,
-          status: "drafting",
-          createdByUserId: userId,
-        })
-        .returning();
-      projectId = project.id;
-    }
-
-    // 7. Build Tiptap-compatible content JSON
+    // 6. Build Tiptap-compatible content JSON
     const contentJson = {
       type: "doc",
       content: cleanupResult.paragraphs.map((p) => ({
@@ -124,81 +107,115 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       .map((p) => p.text)
       .join("\n\n");
 
-    // 8. Determine version number
-    const existingDrafts = await db
-      .select({ versionNumber: draftVersions.versionNumber })
-      .from(draftVersions)
-      .where(eq(draftVersions.contentProjectId, projectId))
-      .orderBy(desc(draftVersions.versionNumber))
-      .limit(1);
+    // 7. Persist atomically: reuse the video's project if one exists
+    // (unique on workspace + sourceVideo prevents duplicates under races),
+    // add the next draft version, and point the project at it.
+    const { projectId, draftId, nextVersion } = await db.transaction(
+      async (tx) => {
+        let projectId = payload.projectId ?? null;
 
-    const nextVersion =
-      existingDrafts.length > 0 ? existingDrafts[0].versionNumber + 1 : 1;
+        if (!projectId) {
+          const [inserted] = await tx
+            .insert(contentProjects)
+            .values({
+              workspaceId,
+              sourceVideoId: videoId,
+              title: video.title,
+              status: "drafting",
+              createdByUserId: userId,
+            })
+            .onConflictDoNothing({
+              target: [
+                contentProjects.workspaceId,
+                contentProjects.sourceVideoId,
+              ],
+            })
+            .returning();
 
-    // 9. Create draft version
-    const [draft] = await db
-      .insert(draftVersions)
-      .values({
-        workspaceId,
-        contentProjectId: projectId,
-        sourceTranscriptRevisionId: sourceRevision.id,
-        versionNumber: nextVersion,
-        status: "working",
-        title: video.title,
-        intro: summaryResult.intro || null,
-        summary: summaryResult.summary || null,
-        contentJson,
-        plainText,
-        metadataJson: {
-          aiModel: cleanupResult.aiModel,
-          cleanupTokens: cleanupResult.tokensUsed,
-          summaryTokens: summaryResult.tokensUsed,
-        },
-        createdByUserId: userId,
-      })
-      .returning();
+          if (inserted) {
+            projectId = inserted.id;
+          } else {
+            const [existing] = await tx
+              .select({ id: contentProjects.id })
+              .from(contentProjects)
+              .where(
+                and(
+                  eq(contentProjects.workspaceId, workspaceId),
+                  eq(contentProjects.sourceVideoId, videoId)
+                )
+              )
+              .limit(1);
+            projectId = existing.id;
+          }
+        }
 
-    // 10. Update project to point to this draft
-    await db
-      .update(contentProjects)
-      .set({
-        activeDraftVersionId: draft.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(contentProjects.id, projectId));
+        const existingDrafts = await tx
+          .select({ versionNumber: draftVersions.versionNumber })
+          .from(draftVersions)
+          .where(eq(draftVersions.contentProjectId, projectId))
+          .orderBy(desc(draftVersions.versionNumber))
+          .limit(1);
 
-    // 11. Mark run succeeded
-    await db
-      .update(appRuns)
-      .set({
-        status: "succeeded",
-        finishedAt: new Date(),
-        outputJson: {
-          projectId,
-          draftVersionId: draft.id,
-          versionNumber: nextVersion,
-          paragraphCount: cleanupResult.paragraphs.length,
-          cleanupTokens: cleanupResult.tokensUsed,
-          summaryTokens: summaryResult.tokensUsed,
-        },
-      })
-      .where(eq(appRuns.id, runId));
+        const nextVersion =
+          existingDrafts.length > 0 ? existingDrafts[0].versionNumber + 1 : 1;
+
+        const [draft] = await tx
+          .insert(draftVersions)
+          .values({
+            workspaceId,
+            contentProjectId: projectId,
+            sourceTranscriptRevisionId: sourceRevision.id,
+            versionNumber: nextVersion,
+            status: "working",
+            title: video.title,
+            intro: summaryResult.intro || null,
+            summary: summaryResult.summary || null,
+            contentJson,
+            plainText,
+            metadataJson: {
+              aiModel: cleanupResult.aiModel,
+              cleanupTokens: cleanupResult.tokensUsed,
+              summaryTokens: summaryResult.tokensUsed,
+              degradedChunks: cleanupResult.degradedChunks,
+            },
+            createdByUserId: userId,
+          })
+          .returning();
+
+        await tx
+          .update(contentProjects)
+          .set({
+            activeDraftVersionId: draft.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(contentProjects.id, projectId));
+
+        await tx
+          .update(appRuns)
+          .set({
+            status: "succeeded",
+            finishedAt: new Date(),
+            outputJson: {
+              projectId,
+              draftVersionId: draft.id,
+              versionNumber: nextVersion,
+              paragraphCount: cleanupResult.paragraphs.length,
+              cleanupTokens: cleanupResult.tokensUsed,
+              summaryTokens: summaryResult.tokensUsed,
+            },
+          })
+          .where(eq(appRuns.id, runId));
+
+        return { projectId, draftId: draft.id, nextVersion };
+      }
+    );
 
     console.log(
-      `[draft-generate] Created draft v${nextVersion} for project ${projectId}`
+      `[draft-generate] Created draft v${nextVersion} (${draftId}) for project ${projectId}`
     );
   } catch (error) {
+    // Failure state is written by the worker's final-failure handler.
     console.error(`[draft-generate] Failed:`, error);
-
-    await db
-      .update(appRuns)
-      .set({
-        status: "failed",
-        finishedAt: new Date(),
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-      .where(eq(appRuns.id, runId));
-
     throw error;
   }
 }

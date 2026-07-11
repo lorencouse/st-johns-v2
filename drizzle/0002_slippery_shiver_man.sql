@@ -1,0 +1,1 @@
+ALTER TABLE "content_project" ADD CONSTRAINT "uq_content_project_workspace_video" UNIQUE("workspace_id","source_video_id");

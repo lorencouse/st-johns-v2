@@ -51,9 +51,17 @@ export function VideoActions({
     return (
       <RunStatus
         runId={runId}
-        onComplete={() => {
+        onSuccess={() => {
           router.refresh();
           setRunId(null);
+        }}
+        onRetry={() => {
+          setRunId(null);
+          handleIngest();
+        }}
+        onDismiss={() => {
+          setRunId(null);
+          router.refresh();
         }}
       />
     );

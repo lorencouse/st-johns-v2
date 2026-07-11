@@ -22,7 +22,15 @@ function parseConnection() {
 }
 
 export function createQueue(name: string) {
-  return new Queue(name, { connection: parseConnection() });
+  return new Queue(name, {
+    connection: parseConnection(),
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 500 },
+    },
+  });
 }
 
 export function createWorker<T>(

@@ -8,6 +8,7 @@ import {
   workspaceChannels,
   workspacePlaylists,
   contentProjects,
+  integrationConnections,
 } from "@/server/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { LibraryDashboard } from "@/components/library/library-dashboard";
@@ -42,6 +43,13 @@ export default async function LibraryPage({
     .select({ id: workspaceChannels.channelId })
     .from(workspaceChannels)
     .where(eq(workspaceChannels.workspaceId, workspace.id));
+
+  const [connection] = await db
+    .select({ status: integrationConnections.status })
+    .from(integrationConnections)
+    .where(eq(integrationConnections.workspaceId, workspace.id))
+    .limit(1);
+  const needsReconnect = !!connection && connection.status !== "active";
 
   const rawPlaylists = await db
     .select({
@@ -94,6 +102,7 @@ export default async function LibraryPage({
       channelCount={channels.length}
       playlists={playlists}
       syncRunId={syncRunId ?? null}
+      needsReconnect={needsReconnect}
       videos={videos.map(({ video, channelTitle, ingestStatus }) => ({
         id: video.id,
         title: video.title,

@@ -52,7 +52,8 @@ export function CommentPanel({
   }, [workspaceId, projectId]);
 
   useEffect(() => {
-    fetchComments();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- setState happens after the fetch resolves, not synchronously
+    void fetchComments();
   }, [fetchComments]);
 
   async function handleNewThread(e: React.FormEvent) {
