@@ -20,8 +20,9 @@ Coolify Postgres through the SSH tunnel `scripts/tunnel.sh` opens on
 `localhost:15432`; `bun dev` opens it first. There is no local copy to fall
 back on, so:
 
-- Never run `bun run db:push` — drizzle-kit push diffs the schema and drops
-  columns with no migration file. Use `db:generate` then `db:migrate`.
+- The `db:push` script has been removed from `package.json`, and must not be
+  added back: drizzle-kit push diffs the schema against the live database and
+  drops columns with no migration file. Use `db:generate` then `db:migrate`.
 - A script's `--apply` flag writes live data. Dry-run first; they all support it.
 - Run `./scripts/tunnel.sh` by hand before scripts, when the dev server is not up.
 

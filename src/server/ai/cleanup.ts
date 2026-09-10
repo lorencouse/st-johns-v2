@@ -535,12 +535,124 @@ async function aiCleanupChunk(
     );
   }
 
+  // Guard against the model summarizing instead of editing. Cleanup removes
+  // filler, so some shrinkage is expected and healthy; losing nearly half the
+  // words is not. Throwing here routes the chunk through the normal retry and,
+  // if that fails too, the local fallback — which keeps every word.
+  const inputWords = filtered.reduce((sum, seg) => sum + countWords(seg.text), 0);
+  const outputWords = final.reduce((sum, p) => sum + countWords(p.text), 0);
+  if (inputWords > 0 && outputWords / inputWords < MIN_RETENTION) {
+    throw new Error(
+      `Cleanup dropped too much text: kept ${outputWords} of ${inputWords} words ` +
+        `(${Math.round((outputWords / inputWords) * 100)}%, need ${Math.round(MIN_RETENTION * 100)}%)`
+    );
+  }
+
   return { paragraphs: final, tokensUsed, inputTokens, outputTokens, aiModel };
 }
 
-// ~200 segments ≈ ~3K input tokens → leaves plenty of room for 16K output
-const CHUNK_SIZE = 200;
+// Chunks are bounded by characters, not segment count. A "segment" is not a
+// fixed size: the normalized revision merges captions on silence gaps, and an
+// auto-captioned service with no gaps collapses into a handful of segments —
+// we have seen a single one carrying 14K characters. Chunking on segment count
+// then handed the model an entire service as one chunk, and it responded by
+// silently condensing it to a fraction of the original. Bounding on characters
+// keeps every chunk roughly the same size however the segments fell.
+const CHUNK_CHARS = 6000;
+/** A single segment larger than this is split on sentence/word boundaries. */
+const MAX_SEGMENT_CHARS = 3000;
 const CHUNK_ATTEMPTS = 3;
+
+/**
+ * The cleanup model is told to edit, not summarize, but on a long input it
+ * will quietly do the latter. Anything under this fraction of the words it was
+ * given is treated as a failed chunk so the retry (and ultimately the local
+ * fallback) can salvage the section.
+ */
+const MIN_RETENTION = 0.55;
+
+const countWords = (text: string): number =>
+  text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
+
+/**
+ * Break a segment whose text is too large to survive a single cleanup pass,
+ * dividing its time span proportionally across the pieces. Splits on sentence
+ * ends where they exist and on word boundaries where they do not (auto
+ * captions are frequently unpunctuated).
+ */
+export function splitOversizedSegment(seg: MarkedSegment): MarkedSegment[] {
+  if (seg.text.length <= MAX_SEGMENT_CHARS) return [seg];
+
+  // Pack whole words, so the split cannot drop or alter text — auto captions
+  // are often entirely unpunctuated, which defeats any sentence-based split.
+  // Where sentence ends do exist we prefer to break just after one.
+  const words = seg.text.trim().split(/\s+/);
+  const pieces: string[] = [];
+  let current = "";
+  let lastSentenceEnd = -1;
+
+  const flush = (upTo: number) => {
+    if (upTo > 0 && upTo < current.length) {
+      pieces.push(current.slice(0, upTo).trim());
+      current = current.slice(upTo).trim();
+    } else {
+      pieces.push(current);
+      current = "";
+    }
+    lastSentenceEnd = -1;
+  };
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && candidate.length > MAX_SEGMENT_CHARS) {
+      // Break at the most recent sentence end if one sits reasonably far in,
+      // otherwise break here on the word boundary.
+      flush(lastSentenceEnd > MAX_SEGMENT_CHARS / 2 ? lastSentenceEnd : 0);
+      current = current ? `${current} ${word}` : word;
+    } else {
+      current = candidate;
+    }
+    if (/[.!?]["')\]]?$/.test(current)) lastSentenceEnd = current.length;
+  }
+  if (current) pieces.push(current);
+
+  const duration = Math.max(0, seg.end - seg.start);
+  const totalChars = pieces.reduce((sum, piece) => sum + piece.length, 0) || 1;
+
+  let consumed = 0;
+  return pieces.map((text, index) => {
+    const pieceStart = seg.start + (duration * consumed) / totalChars;
+    consumed += text.length;
+    const pieceEnd = seg.start + (duration * consumed) / totalChars;
+    return {
+      ...seg,
+      text,
+      start: pieceStart,
+      end: pieceEnd,
+      // Only the first piece inherits the original speaker break.
+      speakerBreak: index === 0 ? seg.speakerBreak : false,
+    };
+  });
+}
+
+/** Group segments into chunks bounded by total characters. */
+export function buildChunks(segments: MarkedSegment[]): MarkedSegment[][] {
+  const chunks: MarkedSegment[][] = [];
+  let current: MarkedSegment[] = [];
+  let size = 0;
+
+  for (const seg of segments) {
+    if (current.length > 0 && size + seg.text.length > CHUNK_CHARS) {
+      chunks.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(seg);
+    size += seg.text.length;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
 
 export async function withRetries<T>(
   fn: () => Promise<T>,
@@ -567,15 +679,15 @@ export async function withRetries<T>(
 export async function aiCleanup(
   segments: CaptionSegment[]
 ): Promise<CleanupResult> {
-  const filtered = filterNoise(segments);
+  const filtered = filterNoise(segments).flatMap(splitOversizedSegment);
 
-  // Split into chunks to avoid output token truncation
-  const chunks: CaptionSegment[][] = [];
-  for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
-    chunks.push(filtered.slice(i, i + CHUNK_SIZE));
-  }
+  // Split into chunks to avoid output token truncation and the condensing the
+  // model does when handed too much at once.
+  const chunks = buildChunks(filtered);
 
-  console.log(`[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`);
+  console.log(
+    `[ai-cleanup] Processing ${filtered.length} segments in ${chunks.length} chunk(s)`
+  );
 
   const allParagraphs: Paragraph[] = [];
   let totalTokensUsed = 0;
