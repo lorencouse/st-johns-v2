@@ -8,6 +8,7 @@ import { TranscriptIssues } from "./transcript-issues";
 import { RunStatus } from "./run-status";
 import { CommentPanel } from "./comment-panel";
 import { ExportPanel } from "./export-panel";
+import { CopyHtmlButton } from "./copy-html-button";
 import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 
@@ -434,7 +435,12 @@ export function StudioClient({
         {draft && (
           <div className="mt-6 space-y-2">
             <h3 className="text-xs font-semibold uppercase text-zinc-400">
-              Export
+              Publish
+            </h3>
+            <CopyHtmlButton workspaceId={workspaceId} projectId={projectId} />
+
+            <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-400">
+              Download a file
             </h3>
             <button
               onClick={() => handleExport("html")}

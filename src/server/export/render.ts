@@ -19,7 +19,15 @@ function watchUrl(videoId: string, timestamp: number | null): string {
 export function renderHtml(
   videoId: string,
   blocks: DocBlock[],
-  options?: { intro?: string | null; summary?: string | null }
+  options?: {
+    intro?: string | null;
+    summary?: string | null;
+    title?: string | null;
+    // Squarespace (and most rich-text editors) drop iframes out of a pasted
+    // document, so the copy-to-clipboard flavour asks for a plain link and
+    // lets the editor place a real video block instead.
+    embed?: "iframe" | "link";
+  }
 ): string {
   const embedUrl = `https://www.youtube.com/embed/${videoId}`;
 
@@ -46,9 +54,18 @@ export function renderHtml(
     })
     .join("\n");
 
-  return `${introSection}<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
+  const titleSection = options?.title
+    ? `<h1>${escapeHtml(options.title)}</h1>\n\n`
+    : "";
+
+  const embedSection =
+    options?.embed === "link"
+      ? `<p><a href="${watchUrl(videoId, null)}">Watch this sermon on YouTube</a></p>`
+      : `<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%;">
   <iframe src="${embedUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" frameborder="0" allowfullscreen></iframe>
-</div>
+</div>`;
+
+  return `${titleSection}${introSection}${embedSection}
 
 <hr>
 

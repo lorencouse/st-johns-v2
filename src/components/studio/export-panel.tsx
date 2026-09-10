@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { copyArtifactToClipboard } from "@/lib/clipboard";
 
 interface ExportArtifact {
   id: string;
@@ -19,6 +20,7 @@ interface ExportPanelProps {
 export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
   const [artifacts, setArtifacts] = useState<ExportArtifact[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -55,6 +57,17 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
     URL.revokeObjectURL(url);
   }
 
+  async function handleCopy(artifact: ExportArtifact) {
+    if (!artifact.bodyText) return;
+    try {
+      await copyArtifactToClipboard(artifact.bodyText, artifact.format);
+      setCopiedId(artifact.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Clipboard access denied; Download still works.
+    }
+  }
+
   const previewArtifact = artifacts.find((a) => a.id === previewId);
 
   if (artifacts.length === 0) return null;
@@ -85,6 +98,12 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
                   className="rounded px-2 py-0.5 text-xs text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                 >
                   {previewId === artifact.id ? "Close" : "Preview"}
+                </button>
+                <button
+                  onClick={() => handleCopy(artifact)}
+                  className="rounded px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  {copiedId === artifact.id ? "Copied" : "Copy"}
                 </button>
                 <button
                   onClick={() => handleDownload(artifact)}
