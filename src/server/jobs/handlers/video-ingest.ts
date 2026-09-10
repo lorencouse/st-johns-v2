@@ -7,9 +7,13 @@ import {
   appRuns,
 } from "@/server/db/schema";
 import { eq, and, max } from "drizzle-orm";
-import { getGoogleAccessToken } from "@/server/auth/google-token";
-import { fetchCaptions, type CaptionSegment } from "@/server/youtube/api";
+import { type CaptionSegment } from "@/server/youtube/api";
+import {
+  fetchPublicCaptions,
+  type CaptionKind,
+} from "@/server/youtube/public-captions";
 import { transcribeWithWhisper } from "@/server/youtube/transcribe";
+import { transcribeLocally } from "@/server/youtube/transcribe-local";
 import {
   filterNoise,
   mergeIntoParagraphs,
@@ -22,6 +26,8 @@ export interface VideoIngestPayload {
   userId: string;
   runId: string;
   allowWhisperFallback?: boolean;
+  /** Transcribe with local whisper.cpp instead of the paid API. */
+  useLocalWhisper?: boolean;
 }
 
 export async function handleVideoIngest(payload: VideoIngestPayload) {
@@ -33,30 +39,42 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
     .where(eq(appRuns.id, runId));
 
   try {
-    // 1. Try YouTube captions first (requires youtube.force-ssl scope)
+    // 1. Pull YouTube's own caption track via yt-dlp. This works for any
+    //    public video, unlike the Data API's captions.download endpoint,
+    //    which only serves channels the OAuth user owns.
     let fetchedSegments: CaptionSegment[] | undefined;
-    const accessToken = await getGoogleAccessToken(userId);
+    let captionKind: CaptionKind | "unknown" = "unknown";
+    let captionLanguage = "en";
 
-    if (!accessToken) {
-      throw new Error(
-        "YouTube connection is no longer valid. Reconnect YouTube in Settings → Integrations, then retry."
+    try {
+      const result = await fetchPublicCaptions(videoId);
+      fetchedSegments = result.segments;
+      captionKind = result.kind;
+      captionLanguage = result.languageCode;
+    } catch (captionErr) {
+      console.log(
+        `[video-ingest] No YouTube captions for ${videoId}: ` +
+          `${captionErr instanceof Error ? captionErr.message : captionErr}`
       );
     }
 
-    try {
-      console.log(`[video-ingest] Trying YouTube captions for ${videoId}`);
-      fetchedSegments = await fetchCaptions(videoId, accessToken);
-    } catch (captionErr) {
-      console.log(`[video-ingest] YouTube captions failed, falling back to Whisper: ${captionErr instanceof Error ? captionErr.message : captionErr}`);
-    }
-
-    // 2. Fall back to Whisper (admin/paid users only)
+    // 2. Fall back to Whisper for videos with no caption track at all.
+    //    Local whisper.cpp is preferred: it is free and unmetered, so the
+    //    paid API is only used when explicitly asked for.
     if (!fetchedSegments || fetchedSegments.length === 0) {
-      if (!payload.allowWhisperFallback) {
-        throw new Error("YouTube captions unavailable and Whisper fallback not enabled for this user");
+      if (payload.useLocalWhisper) {
+        console.log(`[video-ingest] Transcribing ${videoId} with local Whisper`);
+        fetchedSegments = await transcribeLocally(videoId);
+        captionKind = "asr";
+      } else if (payload.allowWhisperFallback) {
+        console.log(`[video-ingest] Transcribing ${videoId} with the Whisper API`);
+        fetchedSegments = await transcribeWithWhisper(videoId);
+        captionKind = "asr";
+      } else {
+        throw new Error(
+          "No YouTube caption track for this video, and no Whisper fallback is enabled."
+        );
       }
-      console.log(`[video-ingest] Transcribing ${videoId} with Whisper`);
-      fetchedSegments = await transcribeWithWhisper(videoId);
     }
 
     if (!fetchedSegments || fetchedSegments.length === 0) {
@@ -88,15 +106,15 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
       if (track) {
         await tx
           .update(captionTracks)
-          .set({ lastFetchedAt: new Date() })
+          .set({ kind: captionKind, lastFetchedAt: new Date() })
           .where(eq(captionTracks.id, track.id));
       } else {
         [track] = await tx
           .insert(captionTracks)
           .values({
             videoId,
-            languageCode: "en",
-            kind: "unknown",
+            languageCode: captionLanguage,
+            kind: captionKind,
             isDefault: true,
             lastFetchedAt: new Date(),
           })
