@@ -10,6 +10,8 @@ interface VideoActionsProps {
   videoId: string;
   workspaceSlug: string;
   ingestStatus: string;
+  /** Premiere or stream that has not finished airing — nothing to fetch yet. */
+  isScheduled?: boolean;
   project: { id: string; status: string } | null;
 }
 
@@ -18,6 +20,7 @@ export function VideoActions({
   videoId,
   workspaceSlug,
   ingestStatus,
+  isScheduled = false,
   project,
 }: VideoActionsProps) {
   const router = useRouter();
@@ -78,7 +81,7 @@ export function VideoActions({
         </Link>
       )}
 
-      {ingestStatus !== "captions_available" && (
+      {ingestStatus !== "captions_available" && !isScheduled && (
         <button
           onClick={handleIngest}
           disabled={loading}

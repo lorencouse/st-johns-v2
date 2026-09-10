@@ -194,6 +194,10 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
                 ? new Date(video.publishedAt)
                 : null,
             durationSeconds: detail?.durationSeconds ?? null,
+            liveStatus: detail?.liveStatus ?? null,
+            scheduledStartAt: detail?.scheduledStartAt
+              ? new Date(detail.scheduledStartAt)
+              : null,
             lastMetadataSyncedAt: new Date(),
           })
           .onConflictDoUpdate({
@@ -206,6 +210,12 @@ export async function handleChannelSync(payload: ChannelSyncPayload) {
                 ? new Date(detail.publishedAt)
                 : undefined,
               durationSeconds: detail?.durationSeconds ?? undefined,
+              // Always written, never `undefined`: a stream that has finished
+              // reports "none" and must clear its scheduled state.
+              liveStatus: detail?.liveStatus ?? null,
+              scheduledStartAt: detail?.scheduledStartAt
+                ? new Date(detail.scheduledStartAt)
+                : null,
               lastMetadataSyncedAt: new Date(),
               updatedAt: new Date(),
             },

@@ -26,13 +26,20 @@ function parseFilter(value: string | undefined): FilterKey {
 }
 
 /**
+ * A scheduled premiere or an in-progress stream. There is no finished audio to
+ * fetch captions from, so these are never "needs captions" — they just haven't
+ * happened yet.
+ */
+const isScheduledSql = sql<boolean>`coalesce(${sourceVideos.liveStatus}, 'none') in ('upcoming', 'live')`;
+
+/**
  * SQL predicate for each workflow filter, against the joined video query.
  * Caption state comes from `captionsReadySql`, not the ingest flag alone, so a
  * video that already has a transcript is never listed as needing captions.
  */
 const FILTER_CONDITIONS: Record<FilterKey, SQL | undefined> = {
   all: undefined,
-  needs_captions: sql`not ${captionsReadySql}`,
+  needs_captions: sql`not ${captionsReadySql} and not ${isScheduledSql}`,
   ready_to_draft: and(captionsReadySql, isNull(contentProjects.id)),
   drafting: eq(contentProjects.status, "drafting"),
   review_queue: or(
@@ -161,6 +168,8 @@ export default async function LibraryPage({
       publishedAt: sourceVideos.publishedAt,
       ingestStatus: workspaceVideos.ingestStatus,
       hasTranscript: hasTranscriptSql,
+      liveStatus: sourceVideos.liveStatus,
+      scheduledStartAt: sourceVideos.scheduledStartAt,
       channelTitle: youtubeChannels.title,
       projectId: contentProjects.id,
       projectStatus: contentProjects.status,
@@ -257,6 +266,8 @@ export default async function LibraryPage({
         // An existing transcript is the ground truth: report captions as
         // available even when the stored flag was never advanced.
         ingestStatus: row.hasTranscript ? "captions_available" : row.ingestStatus,
+        liveStatus: row.liveStatus,
+        scheduledStartAt: row.scheduledStartAt?.toISOString() ?? null,
         channelTitle: row.channelTitle,
         project:
           row.projectId && row.projectStatus

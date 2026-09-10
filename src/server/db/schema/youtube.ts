@@ -81,6 +81,14 @@ export const sourceVideos = pgTable(
     description: text("description"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     durationSeconds: integer("duration_seconds"),
+    /**
+     * YouTube's liveBroadcastContent: "upcoming" for a scheduled premiere or
+     * stream, "live" while it airs, "none" for an ordinary video. An upcoming
+     * stream has no audio yet, so it can never be transcribed — the library
+     * shows it as scheduled rather than as a video awaiting captions.
+     */
+    liveStatus: text("live_status"),
+    scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
     thumbnailUrl: text("thumbnail_url"),
     defaultLanguage: text("default_language"),
     lastMetadataSyncedAt: timestamp("last_metadata_synced_at", {

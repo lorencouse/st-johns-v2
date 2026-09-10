@@ -226,11 +226,20 @@ export async function fetchPlaylistVideos(
   return videos;
 }
 
+export interface VideoDetail {
+  durationSeconds: number | null;
+  publishedAt: string | null;
+  description: string | null;
+  /** "upcoming" | "live" | "none" — a scheduled stream has no audio yet. */
+  liveStatus: string | null;
+  scheduledStartAt: string | null;
+}
+
 export async function fetchVideoDetails(
   videoIds: string[],
   auth: YTAuth
-): Promise<Map<string, { durationSeconds: number | null; publishedAt: string | null; description: string | null }>> {
-  const result = new Map<string, { durationSeconds: number | null; publishedAt: string | null; description: string | null }>();
+): Promise<Map<string, VideoDetail>> {
+  const result = new Map<string, VideoDetail>();
 
   // YouTube API allows up to 50 IDs per request
   for (let i = 0; i < videoIds.length; i += 50) {
@@ -238,7 +247,7 @@ export async function fetchVideoDetails(
     const data = await ytFetch(
       "videos",
       {
-        part: "contentDetails,snippet",
+        part: "contentDetails,snippet,liveStreamingDetails",
         id: batch.join(","),
       },
       auth
@@ -251,6 +260,9 @@ export async function fetchVideoDetails(
           : null,
         publishedAt: item.snippet?.publishedAt || null,
         description: item.snippet?.description || null,
+        liveStatus: item.snippet?.liveBroadcastContent || null,
+        scheduledStartAt:
+          item.liveStreamingDetails?.scheduledStartTime || null,
       });
     }
   }

@@ -14,6 +14,8 @@ interface LibraryVideo {
   thumbnailUrl: string | null;
   publishedAt: string | null;
   ingestStatus: string;
+  liveStatus: string | null;
+  scheduledStartAt: string | null;
   channelTitle: string | null;
   project: { id: string; status: string } | null;
 }
@@ -393,6 +395,8 @@ export function LibraryDashboard({
                             ? new Date(video.publishedAt)
                             : null,
                           ingestStatus: video.ingestStatus,
+                          liveStatus: video.liveStatus,
+                          scheduledStartAt: video.scheduledStartAt,
                         }}
                         channelTitle={video.channelTitle}
                         project={video.project}

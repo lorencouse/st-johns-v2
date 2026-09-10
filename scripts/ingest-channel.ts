@@ -205,6 +205,8 @@ async function main() {
         description: d?.description ?? v.description,
         publishedAt: d?.publishedAt ? new Date(d.publishedAt) : null,
         durationSeconds: d?.durationSeconds ?? null,
+        liveStatus: d?.liveStatus ?? null,
+        scheduledStartAt: d?.scheduledStartAt ? new Date(d.scheduledStartAt) : null,
         thumbnailUrl: v.thumbnailUrl,
         lastMetadataSyncedAt: new Date(),
       })
@@ -213,6 +215,8 @@ async function main() {
         set: {
           title: v.title,
           durationSeconds: d?.durationSeconds ?? null,
+          liveStatus: d?.liveStatus ?? null,
+          scheduledStartAt: d?.scheduledStartAt ? new Date(d.scheduledStartAt) : null,
           updatedAt: new Date(),
         },
       });

@@ -13,6 +13,8 @@ interface VideoRowProps {
     thumbnailUrl: string | null;
     publishedAt: Date | null;
     ingestStatus: string;
+    liveStatus: string | null;
+    scheduledStartAt: string | null;
   };
   channelTitle: string | null;
   project: { id: string; status: string } | null;
@@ -27,7 +29,14 @@ export function VideoRow({
 }: VideoRowProps) {
   const router = useRouter();
 
+  // A premiere or stream that has not finished airing: no audio exists yet, so
+  // there is nothing to fetch or review until it does.
+  const isUpcoming = video.liveStatus === "upcoming";
+  const isLive = video.liveStatus === "live";
+  const isScheduled = isUpcoming || isLive;
+
   function handleClick() {
+    if (isScheduled) return;
     if (project) {
       router.push(`/w/${workspaceSlug}/projects/${project.id}`);
       return;
@@ -39,21 +48,36 @@ export function VideoRow({
     }
   }
 
-  const pipelineLabel =
-    video.ingestStatus === "captions_available"
-      ? "Transcript ready"
-      : video.ingestStatus === "ingest_failed"
-        ? "Ingest failed"
-        : video.ingestStatus === "metadata_synced"
-          ? "Waiting for captions"
-          : "Not processed";
+  const pipelineLabel = isLive
+    ? "Live now"
+    : isUpcoming
+      ? "Scheduled"
+      : video.ingestStatus === "captions_available"
+        ? "Transcript ready"
+        : video.ingestStatus === "ingest_failed"
+          ? "Ingest failed"
+          : video.ingestStatus === "metadata_synced"
+            ? "Waiting for captions"
+            : "Not processed";
 
-  const pipelineTone =
-    video.ingestStatus === "captions_available"
-      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-      : video.ingestStatus === "ingest_failed"
-        ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-        : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  const pipelineTone = isLive
+    ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+    : isUpcoming
+      ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+      : video.ingestStatus === "captions_available"
+        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+        : video.ingestStatus === "ingest_failed"
+          ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+          : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+
+  const scheduledFor = video.scheduledStartAt
+    ? new Date(video.scheduledStartAt).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
 
   const projectTone = project
     ? project.status === "approved"
@@ -84,20 +108,28 @@ export function VideoRow({
           <div>
             <span className="font-medium line-clamp-1">{video.title}</span>
             <p className="mt-1 text-xs text-zinc-500">
-              {project
-                ? "Open the project workspace"
-                : video.ingestStatus === "captions_available"
-                  ? "Review transcript and start a project"
-                  : "Imported to the library and ready for captions when you choose"}
+              {isLive
+                ? "Airing now — captions can be fetched once it ends"
+                : isUpcoming
+                  ? scheduledFor
+                    ? `Premieres ${scheduledFor} — nothing to transcribe yet`
+                    : "Not aired yet — nothing to transcribe yet"
+                  : project
+                    ? "Open the project workspace"
+                    : video.ingestStatus === "captions_available"
+                      ? "Review transcript and start a project"
+                      : "Imported to the library and ready for captions when you choose"}
             </p>
           </div>
         </button>
       </td>
       <td className="px-4 py-4 pr-4 text-zinc-500">{channelTitle}</td>
       <td className="px-4 py-4 pr-4 text-zinc-500">
-        {video.publishedAt
-          ? new Date(video.publishedAt).toLocaleDateString()
-          : "—"}
+        {isUpcoming && scheduledFor
+          ? scheduledFor
+          : video.publishedAt
+            ? new Date(video.publishedAt).toLocaleDateString()
+            : "—"}
       </td>
       <td className="px-4 py-4 pr-4">
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pipelineTone}`}>
@@ -122,6 +154,7 @@ export function VideoRow({
           videoId={video.id}
           workspaceSlug={workspaceSlug}
           ingestStatus={video.ingestStatus}
+          isScheduled={isScheduled}
           project={project}
         />
       </td>
