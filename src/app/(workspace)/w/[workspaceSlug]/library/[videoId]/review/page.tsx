@@ -7,6 +7,7 @@ import {
   transcriptSegments,
 } from "@/server/db/schema";
 import { and, eq, desc } from "drizzle-orm";
+import { hasTranscriptSql } from "@/server/db/transcript-availability";
 import { notFound } from "next/navigation";
 import { TranscriptReviewClient } from "@/components/library/transcript-review-client";
 
@@ -24,7 +25,10 @@ export default async function TranscriptReviewPage({
 
   // Verify video belongs to workspace via junction table
   const [wsVideo] = await db
-    .select()
+    .select({
+      ingestStatus: workspaceVideos.ingestStatus,
+      hasTranscript: hasTranscriptSql,
+    })
     .from(workspaceVideos)
     .where(
       and(
@@ -34,7 +38,12 @@ export default async function TranscriptReviewPage({
     )
     .limit(1);
 
-  if (!wsVideo || wsVideo.ingestStatus !== "captions_available") {
+  // A stored transcript is enough to review, even if the ingest flag never
+  // advanced past "discovered".
+  if (
+    !wsVideo ||
+    (wsVideo.ingestStatus !== "captions_available" && !wsVideo.hasTranscript)
+  ) {
     notFound();
   }
 

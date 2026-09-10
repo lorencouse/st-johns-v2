@@ -228,18 +228,25 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
         );
       }
 
+      // Upsert rather than update: if the junction row is missing the update
+      // would silently touch nothing, leaving a transcribed video looking
+      // unprocessed in the library.
       await tx
-        .update(workspaceVideos)
-        .set({
+        .insert(workspaceVideos)
+        .values({
+          workspaceId,
+          videoId,
           ingestStatus: "captions_available",
           lastCaptionsCheckedAt: new Date(),
+          addedByUserId: userId,
         })
-        .where(
-          and(
-            eq(workspaceVideos.workspaceId, workspaceId),
-            eq(workspaceVideos.videoId, videoId)
-          )
-        );
+        .onConflictDoUpdate({
+          target: [workspaceVideos.workspaceId, workspaceVideos.videoId],
+          set: {
+            ingestStatus: "captions_available",
+            lastCaptionsCheckedAt: new Date(),
+          },
+        });
 
       await tx
         .update(appRuns)

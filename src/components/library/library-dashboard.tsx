@@ -1,19 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useDeferredValue, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { RunStatus } from "@/components/studio/run-status";
 import { VideoRow } from "./video-row";
-
-type FilterKey =
-  | "all"
-  | "needs_captions"
-  | "ready_to_draft"
-  | "drafting"
-  | "review_queue"
-  | "approved"
-  | "no_project";
+import { FILTER_KEYS, FILTER_LABELS, type FilterKey } from "./library-filters";
+import { Pagination } from "@/components/ui/pagination";
 
 interface LibraryVideo {
   id: string;
@@ -33,6 +26,17 @@ interface LibraryPlaylist {
   channelTitle: string | null;
 }
 
+interface LibraryStats {
+  totalVideos: number;
+  captionsReady: number;
+  readyToDraft: number;
+  drafting: number;
+  reviewQueue: number;
+  approved: number;
+  hasProject: boolean;
+  hasReviewActivity: boolean;
+}
+
 interface LibraryDashboardProps {
   workspaceId: string;
   workspaceSlug: string;
@@ -41,60 +45,22 @@ interface LibraryDashboardProps {
   playlists: LibraryPlaylist[];
   syncRunId: string | null;
   needsReconnect: boolean;
+  activeFilter: FilterKey;
+  query: string;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  totalForFilter: number;
+  counts: Record<FilterKey, number>;
+  stats: LibraryStats;
   videos: LibraryVideo[];
 }
 
-const FILTER_LABELS: Record<FilterKey, string> = {
-  all: "All videos",
-  needs_captions: "Needs captions",
-  ready_to_draft: "Ready to draft",
-  drafting: "Drafting",
-  review_queue: "Review queue",
-  approved: "Approved",
-  no_project: "No project",
-};
-
-function hasProjectStatus(video: LibraryVideo, statuses: string[]) {
-  return !!video.project && statuses.includes(video.project.status);
-}
-
-function matchesFilter(video: LibraryVideo, filter: FilterKey) {
-  switch (filter) {
-    case "all":
-      return true;
-    case "needs_captions":
-      return video.ingestStatus !== "captions_available";
-    case "ready_to_draft":
-      return video.ingestStatus === "captions_available" && !video.project;
-    case "drafting":
-      return hasProjectStatus(video, ["drafting"]);
-    case "review_queue":
-      return hasProjectStatus(video, ["ready_for_review", "changes_requested"]);
-    case "approved":
-      return hasProjectStatus(video, ["approved"]);
-    case "no_project":
-      return !video.project;
-  }
-}
-
-function getSummary(videos: LibraryVideo[], channelCount: number) {
-  const captionsReady = videos.filter(
-    (video) => video.ingestStatus === "captions_available"
-  ).length;
-  const readyToDraft = videos.filter((video) =>
-    matchesFilter(video, "ready_to_draft")
-  ).length;
-  const drafting = videos.filter((video) => matchesFilter(video, "drafting")).length;
-  const reviewQueue = videos.filter((video) =>
-    matchesFilter(video, "review_queue")
-  ).length;
-  const approved = videos.filter((video) => matchesFilter(video, "approved")).length;
-  const hasProject = videos.some((video) => !!video.project);
-  const hasReviewActivity = videos.some((video) =>
-    hasProjectStatus(video, ["ready_for_review", "changes_requested", "approved"])
-  );
-
-  const checklist = [
+function buildChecklist(
+  stats: LibraryStats,
+  channelCount: number
+) {
+  return [
     {
       id: "connect_channel",
       title: "Connect a YouTube channel",
@@ -107,7 +73,7 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       id: "sync_videos",
       title: "See videos and playlists",
       description: "After connecting, the workspace should show imported uploads and playlists.",
-      done: videos.length > 0,
+      done: stats.totalVideos > 0,
       actionLabel: "Open integrations",
       href: "settings/integrations",
     },
@@ -115,7 +81,7 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       id: "fetch_captions",
       title: "Fetch captions for a video",
       description: "Choose a video from the library and pull its captions when you are ready to work on it.",
-      done: captionsReady > 0,
+      done: stats.captionsReady > 0,
       actionLabel: "Show videos needing captions",
       filter: "needs_captions" as const,
     },
@@ -123,7 +89,7 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       id: "generate_draft",
       title: "Start your first project",
       description: "Review the transcript, then create a project from that video.",
-      done: hasProject,
+      done: stats.hasProject,
       actionLabel: "Show caption-ready videos",
       filter: "ready_to_draft" as const,
     },
@@ -131,21 +97,11 @@ function getSummary(videos: LibraryVideo[], channelCount: number) {
       id: "start_review",
       title: "Send one item to review",
       description: "Use review to turn drafting into a repeatable publishing process.",
-      done: hasReviewActivity,
+      done: stats.hasReviewActivity,
       actionLabel: "Open review queue",
       href: "review",
     },
   ];
-
-  return {
-    captionsReady,
-    readyToDraft,
-    drafting,
-    reviewQueue,
-    approved,
-    checklist,
-    completedChecklistCount: checklist.filter((item) => item.done).length,
-  };
 }
 
 export function LibraryDashboard({
@@ -156,37 +112,66 @@ export function LibraryDashboard({
   playlists,
   syncRunId,
   needsReconnect,
+  activeFilter,
+  query,
+  page,
+  pageSize,
+  pageCount,
+  totalForFilter,
+  counts,
+  stats,
   videos,
 }: LibraryDashboardProps) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const [pendingRunId, setPendingRunId] = useState(syncRunId);
-  const deferredQuery = useDeferredValue(query);
+  const [searchInput, setSearchInput] = useState(query);
 
-  const summary = useMemo(
-    () => getSummary(videos, channelCount),
-    [videos, channelCount]
+  // Keep the box in sync when the URL changes from elsewhere (back button,
+  // "clear search") by adjusting state during render rather than in an effect.
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  if (query !== syncedQuery) {
+    setSyncedQuery(query);
+    setSearchInput(query);
+  }
+
+  const pushParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === "") params.delete(key);
+        else params.set(key, value);
+      }
+      const search = params.toString();
+      startTransition(() => {
+        router.replace(search ? `${pathname}?${search}` : pathname, {
+          scroll: false,
+        });
+      });
+    },
+    [pathname, router, searchParams]
   );
 
-  const filteredVideos = useMemo(() => {
-    const normalizedQuery = deferredQuery.trim().toLowerCase();
+  // Debounce typing so each keystroke does not hit the database.
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === query) return;
+    const timer = setTimeout(() => {
+      pushParams({ q: next || null, page: null });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, query, pushParams]);
 
-    return videos.filter((video) => {
-      if (!matchesFilter(video, activeFilter)) return false;
-      if (!normalizedQuery) return true;
+  const setFilter = (filter: FilterKey) =>
+    pushParams({ filter: filter === "all" ? null : filter, page: null });
 
-      return (
-        video.title.toLowerCase().includes(normalizedQuery) ||
-        (video.channelTitle ?? "").toLowerCase().includes(normalizedQuery) ||
-        (video.project?.status ?? "").toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [videos, activeFilter, deferredQuery]);
-
-  const hasVideos = videos.length > 0;
+  const hasVideos = stats.totalVideos > 0;
+  const checklist = buildChecklist(stats, channelCount);
+  const completedChecklistCount = checklist.filter((item) => item.done).length;
   const completionPercent = Math.round(
-    (summary.completedChecklistCount / summary.checklist.length) * 100
+    (completedChecklistCount / checklist.length) * 100
   );
 
   return (
@@ -262,31 +247,31 @@ export function LibraryDashboard({
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
               label="Videos in library"
-              value={videos.length}
+              value={stats.totalVideos}
               detail={`${channelCount} synced channel${channelCount === 1 ? "" : "s"}`}
               active={activeFilter === "all"}
-              onClick={() => setActiveFilter("all")}
+              onClick={() => setFilter("all")}
             />
             <SummaryCard
               label="Ready to draft"
-              value={summary.readyToDraft}
+              value={stats.readyToDraft}
               detail="Captions available, project not started"
               active={activeFilter === "ready_to_draft"}
-              onClick={() => setActiveFilter("ready_to_draft")}
+              onClick={() => setFilter("ready_to_draft")}
             />
             <SummaryCard
               label="In review"
-              value={summary.reviewQueue}
+              value={stats.reviewQueue}
               detail="Ready for review or changes requested"
               active={activeFilter === "review_queue"}
-              onClick={() => setActiveFilter("review_queue")}
+              onClick={() => setFilter("review_queue")}
             />
             <SummaryCard
               label="Approved"
-              value={summary.approved}
+              value={stats.approved}
               detail="Completed editorial flow"
               active={activeFilter === "approved"}
-              onClick={() => setActiveFilter("approved")}
+              onClick={() => setFilter("approved")}
             />
           </div>
         </div>
@@ -308,8 +293,8 @@ export function LibraryDashboard({
               <input
                 id="library-search"
                 type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Search titles, channels, or statuses"
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-zinc-700 dark:bg-zinc-900"
               />
@@ -317,33 +302,20 @@ export function LibraryDashboard({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {(
-              [
-                "all",
-                "needs_captions",
-                "ready_to_draft",
-                "drafting",
-                "review_queue",
-                "approved",
-                "no_project",
-              ] as FilterKey[]
-            ).map((filter) => {
-              const count = videos.filter((video) => matchesFilter(video, filter)).length;
-              return (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => setActiveFilter(filter)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                    activeFilter === filter
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
-                  }`}
-                >
-                  {FILTER_LABELS[filter]} ({count})
-                </button>
-              );
-            })}
+            {FILTER_KEYS.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setFilter(filter)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  activeFilter === filter
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                }`}
+              >
+                {FILTER_LABELS[filter]} ({counts[filter]})
+              </button>
+            ))}
           </div>
 
           {!hasVideos ? (
@@ -362,7 +334,7 @@ export function LibraryDashboard({
                 </a>
               </div>
             </div>
-          ) : filteredVideos.length === 0 ? (
+          ) : videos.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/50">
               <h3 className="text-lg font-semibold">No videos match this view</h3>
               <p className="mt-2 text-sm text-zinc-500">
@@ -372,14 +344,17 @@ export function LibraryDashboard({
               <div className="mt-5 flex justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setSearchInput("");
+                    pushParams({ q: null, page: null });
+                  }}
                   className="rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 >
                   Clear search
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveFilter("all")}
+                  onClick={() => setFilter("all")}
                   className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
                 >
                   Show all videos
@@ -387,40 +362,54 @@ export function LibraryDashboard({
               </div>
             </div>
           ) : (
-            <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Video</th>
-                    <th className="px-4 py-3 font-medium">Channel</th>
-                    <th className="px-4 py-3 font-medium">Published</th>
-                    <th className="px-4 py-3 font-medium">Pipeline</th>
-                    <th className="px-4 py-3 font-medium">Project</th>
-                    <th className="px-4 py-3 font-medium">Next action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredVideos.map((video) => (
-                    <VideoRow
-                      key={video.id}
-                      workspaceId={workspaceId}
-                      workspaceSlug={workspaceSlug}
-                      video={{
-                        id: video.id,
-                        title: video.title,
-                        thumbnailUrl: video.thumbnailUrl,
-                        publishedAt: video.publishedAt
-                          ? new Date(video.publishedAt)
-                          : null,
-                        ingestStatus: video.ingestStatus,
-                      }}
-                      channelTitle={video.channelTitle}
-                      project={video.project}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div
+                className={`mt-6 overflow-hidden rounded-2xl border border-zinc-200 transition-opacity dark:border-zinc-800 ${
+                  isPending ? "opacity-60" : ""
+                }`}
+              >
+                <table className="w-full text-sm">
+                  <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Video</th>
+                      <th className="px-4 py-3 font-medium">Channel</th>
+                      <th className="px-4 py-3 font-medium">Published</th>
+                      <th className="px-4 py-3 font-medium">Pipeline</th>
+                      <th className="px-4 py-3 font-medium">Project</th>
+                      <th className="px-4 py-3 font-medium">Next action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {videos.map((video) => (
+                      <VideoRow
+                        key={video.id}
+                        workspaceId={workspaceId}
+                        workspaceSlug={workspaceSlug}
+                        video={{
+                          id: video.id,
+                          title: video.title,
+                          thumbnailUrl: video.thumbnailUrl,
+                          publishedAt: video.publishedAt
+                            ? new Date(video.publishedAt)
+                            : null,
+                          ingestStatus: video.ingestStatus,
+                        }}
+                        channelTitle={video.channelTitle}
+                        project={video.project}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination
+                page={page}
+                pageCount={pageCount}
+                pageSize={pageSize}
+                total={totalForFilter}
+                label="video"
+              />
+            </>
           )}
         </div>
 
@@ -494,7 +483,7 @@ export function LibraryDashboard({
             </div>
 
             <div className="mt-5 space-y-3">
-              {summary.checklist.map((item, index) => (
+              {checklist.map((item, index) => (
                 <div
                   key={item.id}
                   className={`rounded-2xl border p-4 ${
@@ -529,7 +518,7 @@ export function LibraryDashboard({
                       {!item.done && item.filter && (
                         <button
                           type="button"
-                          onClick={() => setActiveFilter(item.filter)}
+                          onClick={() => setFilter(item.filter)}
                           className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
                         >
                           {item.actionLabel}
@@ -546,10 +535,10 @@ export function LibraryDashboard({
                 Editorial signal
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <SignalStat label="Captions ready" value={summary.captionsReady} />
-                <SignalStat label="Drafting" value={summary.drafting} />
-                <SignalStat label="Review queue" value={summary.reviewQueue} />
-                <SignalStat label="Approved" value={summary.approved} />
+                <SignalStat label="Captions ready" value={stats.captionsReady} />
+                <SignalStat label="Drafting" value={stats.drafting} />
+                <SignalStat label="Review queue" value={stats.reviewQueue} />
+                <SignalStat label="Approved" value={stats.approved} />
               </div>
             </div>
           </div>
