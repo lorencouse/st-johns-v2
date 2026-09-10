@@ -97,6 +97,14 @@ export async function transcribeLocally(
     // 2. Transcribe. whisper.cpp uses Metal automatically on Apple Silicon;
     //    threads are capped at the performance cores since the GPU does the
     //    heavy lifting and the efficiency cores only add contention.
+    //
+    //    -mc 0 is load-bearing. By default whisper.cpp prompts each window
+    //    with the text it just produced, and on a long recording that feeds
+    //    back: one filler line becomes the prompt for the next window, which
+    //    produces the same filler again. An 84-minute service came back as
+    //    " Thank you." 169 times, which assertUsableSpeech then correctly
+    //    rejected as silence. Dropping the carried context, the same audio
+    //    yields 782 segments of real speech.
     console.log(`[whisper-local] Transcribing ${videoId}`);
     const started = Date.now();
 
@@ -108,6 +116,7 @@ export async function transcribeLocally(
           "-f", wavPath,
           "-l", "en",
           "-t", "4",
+          "-mc", "0",
           "--output-srt",
           "--output-file", outPrefix,
           "--print-progress",
