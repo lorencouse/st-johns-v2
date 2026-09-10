@@ -10,7 +10,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "dev:local": "next dev",
+    "ingest": "bun run scripts/ingest-channel.ts",
+    "drafts": "bun run scripts/generate-drafts.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

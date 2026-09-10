@@ -26,21 +26,58 @@ export interface SummaryResult {
 
 const PARAGRAPH_GAP_SECONDS = 2.0;
 const MAX_SENTENCES_PER_PARAGRAPH = 5;
-const MIN_SEGMENT_WORDS = 3;
+const MIN_SEGMENT_WORDS = 1;
 const MIN_PARAGRAPH_WORDS = 8;
 
 const AUDIO_MARKER_RE =
   /\[(?:music|applause|singing|music and singing|laughter|inaudible)\]/gi;
 
+/** Non-global twin of AUDIO_MARKER_RE, safe for stateless .test() calls. */
+const MUSIC_MARKER_RE = /\[(?:music|singing|music and singing)\]/i;
+
+/** YouTube emits ">>" at a speaker change in its caption tracks. */
+const SPEAKER_MARKER_RE = /^\s*>>/;
+
+/**
+ * Music markers closer together than this are treated as one continuous
+ * musical item (a hymn), so that stray lyrics the ASR transcribes between
+ * markers are dropped along with the markers themselves.
+ */
+const MUSIC_REGION_MERGE_SECONDS = 45;
+
+/**
+ * A caption segment annotated with structure we recovered before the
+ * markers were stripped out of its text.
+ */
+export interface MarkedSegment extends CaptionSegment {
+  /** This segment began with a ">>" speaker-change marker. */
+  speakerBreak?: boolean;
+}
+
+/**
+ * Filler removal is deliberately conservative: these run over sermon and
+ * scripture text, where an unanchored rule quietly rewrites meaning.
+ * ("right" removed anywhere turns "at the right hand of God" into "at the
+ * hand of God"; "you know" removed anywhere turns "you know that God loves
+ * you" into "that God loves you".) So every word that also has a literal
+ * sense is only stripped where punctuation marks it as a discourse marker.
+ * Genuine non-words (um, uh, ...) are stripped anywhere.
+ */
 const FILLER_PATTERNS: [RegExp, string][] = [
-  [/\b(?:um|uh|umm|uhh|hmm|hm|mm)\b,?\s*/gi, " "],
-  [/\byou know,?\s*/gi, " "],
-  [/\bI mean,?\s*/gi, " "],
-  [/\bright\b[,.]?\s*(?=\s|$)/gi, " "],
-  [/\bokay\b[,.]?\s*/gi, " "],
-  [/(?:^|(?<=\.\s))(?:so|well),?\s+/gim, ""],
-  [/,\s*like,\s*/gi, ", "],
-  [/(?:^|(?<=\.\s))like,?\s+/gim, ""],
+  // Hesitation sounds: never meaningful, safe to remove anywhere.
+  [/\b(?:um|umm|uh|uhh|erm|hmm)\b[,]?\s*/gi, " "],
+
+  // Discourse markers, only when set off by commas or starting a sentence.
+  [/,\s*(?:you know|I mean|like|right|okay)\s*,/gi, ","],
+  [/(?:^|(?<=[.?!]\s))(?:you know|I mean|like|okay|all right|so|well),\s+/gim, ""],
+
+  // Tag questions are statements: "that is true, right?" -> "that is true."
+  [/,\s*(?:right|okay)\s*\?/gi, "."],
+
+  // Tidy punctuation left behind by the rules above.
+  [/,\s*,/g, ","],
+  [/\s+,/g, ","],
+  [/(^|[.?!]\s*)(?:and|but|so),\s+/gi, "$1"],
 ];
 
 // --- Helpers ---
@@ -136,14 +173,89 @@ function interpolateDuplicateTimestamps(paragraphs: Paragraph[]): Paragraph[] {
 
 // --- Public ---
 
-export function filterNoise(segments: CaptionSegment[]): CaptionSegment[] {
-  return segments
-    .map((seg) => ({ ...seg, text: stripMarkers(seg.text) }))
+/**
+ * YouTube's auto-caption tracks use rolling captions: each cue's end time
+ * runs past the next cue's start, so consecutive segments overlap. That
+ * makes every inter-segment "gap" negative and silently defeats the
+ * pause-based paragraph splitting in mergeIntoParagraphs. Clamping each
+ * end to the following start restores real silence gaps.
+ */
+export function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] {
+  return segments.map((seg, i) => {
+    const next = segments[i + 1];
+    if (!next || seg.end <= next.start) return seg;
+    return { ...seg, end: Math.max(seg.start, next.start) };
+  });
+}
+
+/**
+ * Remove hymns and other sung/played sections.
+ *
+ * Music markers are clustered into regions (see MUSIC_REGION_MERGE_SECONDS)
+ * and every segment fully contained in a region is dropped. This removes
+ * both the markers and the fragments of sung lyrics that the ASR picks up
+ * between them, which are noise in a written post and are frequently
+ * copyrighted besides. Segments only partially overlapping a region are
+ * kept, so speech near a boundary survives.
+ */
+export function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] {
+  const markers = segments.filter((seg) => MUSIC_MARKER_RE.test(seg.text));
+  if (markers.length === 0) return segments;
+
+  const regions: { start: number; end: number }[] = [];
+  for (const marker of markers) {
+    const last = regions[regions.length - 1];
+    if (last && marker.start - last.end < MUSIC_REGION_MERGE_SECONDS) {
+      last.end = Math.max(last.end, marker.end);
+    } else {
+      regions.push({ start: marker.start, end: marker.end });
+    }
+  }
+
+  return segments.filter(
+    (seg) =>
+      !regions.some((r) => seg.start >= r.start && seg.end <= r.end)
+  );
+}
+
+/**
+ * Collapse runs of the identical line.
+ *
+ * Whisper repeats a line when audio is sustained or sung, so a refrain comes
+ * back as the same sentence several times over. Keeping the first occurrence
+ * preserves the content while dropping the stutter. Note this is a transcription
+ * artifact only: it is not a substitute for music-section removal, which
+ * stripMusicRegions handles for caption tracks that carry [music] markers.
+ */
+export function collapseRepeats(segments: CaptionSegment[]): CaptionSegment[] {
+  const normalize = (text: string) =>
+    text.trim().toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ");
+
+  const result: CaptionSegment[] = [];
+  for (const seg of segments) {
+    const previous = result[result.length - 1];
+    if (previous && normalize(previous.text) === normalize(seg.text)) {
+      // Extend the kept segment over the repeat rather than leaving a gap.
+      previous.end = Math.max(previous.end, seg.end);
+      continue;
+    }
+    result.push({ ...seg });
+  }
+  return result;
+}
+
+export function filterNoise(segments: CaptionSegment[]): MarkedSegment[] {
+  return collapseRepeats(stripMusicRegions(normalizeOverlaps(segments)))
+    .map((seg) => ({
+      ...seg,
+      speakerBreak: SPEAKER_MARKER_RE.test(seg.text),
+      text: stripMarkers(seg.text),
+    }))
     .filter((seg) => seg.text && wordCount(seg.text) >= MIN_SEGMENT_WORDS);
 }
 
 export function mergeIntoParagraphs(
-  segments: CaptionSegment[],
+  segments: MarkedSegment[],
   gapThreshold = PARAGRAPH_GAP_SECONDS
 ): Paragraph[] {
   if (segments.length === 0) return [];
@@ -154,7 +266,7 @@ export function mergeIntoParagraphs(
 
   for (let i = 1; i < segments.length; i++) {
     const gap = segments[i].start - segments[i - 1].end;
-    if (gap > gapThreshold) {
+    if (gap > gapThreshold || segments[i].speakerBreak) {
       rawParagraphs.push({
         timestamp: currentTimestamp,
         text: currentTexts.join(" "),

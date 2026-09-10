@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatTimestampMs } from "@/lib/format";
 import { flagContent } from "@/lib/content-flags";
+import { looksSung } from "@/lib/repetition-flags";
 import { RunStatus } from "@/components/studio/run-status";
 
 interface Segment {
@@ -434,6 +435,10 @@ export function TranscriptReviewClient({
             {visibleBlocks.map((block) => {
               const flags = flagContent(block.text);
               const hasFlaggedContent = flags.length > 0;
+              // Whisper-transcribed videos have no [music] markers for the
+              // pipeline to strip hymns by, so repetitive passages are
+              // surfaced here for a human to remove rather than guessed at.
+              const likelySung = looksSung(block.text);
               return (
                 <div
                   key={block.id}
@@ -481,11 +486,21 @@ export function TranscriptReviewClient({
 
                   {/* Text area */}
                   <div className="flex-1 min-w-0">
-                    {hasFlaggedContent && (
-                      <div className="mb-0.5">
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                          ⚠ {flags.map((f) => `"${f}"`).join(", ")}
-                        </span>
+                    {(hasFlaggedContent || likelySung) && (
+                      <div className="mb-0.5 flex flex-wrap items-center gap-x-2">
+                        {hasFlaggedContent && (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                            ⚠ {flags.map((f) => `"${f}"`).join(", ")}
+                          </span>
+                        )}
+                        {likelySung && (
+                          <span
+                            className="text-[10px] text-indigo-600 dark:text-indigo-400"
+                            title="Repetitive text — often a hymn. Delete this block if it is sung."
+                          >
+                            ♪ likely sung
+                          </span>
+                        )}
                       </div>
                     )}
                     <textarea
@@ -504,7 +519,9 @@ export function TranscriptReviewClient({
                       className={`w-full rounded-md border px-2 py-1 font-mono text-xs resize-y min-h-[48px] focus:outline-none focus:ring-1 focus:ring-blue-500 ${
                         hasFlaggedContent
                           ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20"
-                          : "border-zinc-200 dark:border-zinc-700"
+                          : likelySung
+                            ? "border-indigo-300 bg-indigo-50/50 dark:border-indigo-700 dark:bg-indigo-950/20"
+                            : "border-zinc-200 dark:border-zinc-700"
                       }`}
                       rows={Math.max(2, Math.ceil(block.text.length / 80))}
                     />
