@@ -118,6 +118,39 @@ function fixPunctuation(text: string): string {
   return text;
 }
 
+/**
+ * Words to allow in a paragraph that offers no sentence breaks to split on.
+ * Some YouTube auto-caption tracks carry no punctuation at all, and when the
+ * cleanup model falls back to the raw text there is not a single period in a
+ * 3,000-word service. Sentence splitting then finds nothing, the paragraph
+ * survives whole, and the structure pass sees too few paragraphs to place any
+ * headings — 13 posts came out as one unbroken wall that way.
+ */
+const MAX_WORDS_PER_PARAGRAPH = 120;
+
+/** Break on word count when there is no punctuation to break on. */
+function splitUnpunctuated(
+  text: string,
+  timestamp: number,
+  nextTimestamp?: number
+): Paragraph[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_WORDS_PER_PARAGRAPH) return [{ timestamp, text }];
+
+  const result: Paragraph[] = [];
+  const totalChunks = Math.ceil(words.length / MAX_WORDS_PER_PARAGRAPH);
+  const duration = nextTimestamp !== undefined ? nextTimestamp - timestamp : 0;
+
+  for (let i = 0; i < words.length; i += MAX_WORDS_PER_PARAGRAPH) {
+    const chunkIndex = Math.floor(i / MAX_WORDS_PER_PARAGRAPH);
+    result.push({
+      timestamp: Math.round(timestamp + (duration * chunkIndex) / totalChunks),
+      text: words.slice(i, i + MAX_WORDS_PER_PARAGRAPH).join(" "),
+    });
+  }
+  return result;
+}
+
 function splitLongParagraph(
   text: string,
   timestamp: number,
@@ -125,7 +158,7 @@ function splitLongParagraph(
 ): Paragraph[] {
   const parts = text.split(/(?<=[.?!])\s+/);
   if (parts.length <= MAX_SENTENCES_PER_PARAGRAPH) {
-    return [{ timestamp, text }];
+    return splitUnpunctuated(text, timestamp, nextTimestamp);
   }
 
   const result: Paragraph[] = [];
