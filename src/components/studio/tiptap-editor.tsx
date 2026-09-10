@@ -4,6 +4,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useRef } from "react";
+import {
+  TimestampedHeading,
+  TimestampedParagraph,
+} from "./timestamp-extension";
 
 interface TiptapEditorProps {
   content: Record<string, unknown>;
@@ -21,7 +25,11 @@ export function TiptapEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      // StarterKit's own paragraph and heading would strip the timestamp
+      // attributes on every edit, so the timestamp-aware versions replace them.
+      StarterKit.configure({ paragraph: false, heading: false }),
+      TimestampedParagraph,
+      TimestampedHeading.configure({ levels: [2, 3] }),
       Placeholder.configure({
         placeholder: "Start writing...",
       }),

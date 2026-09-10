@@ -8,7 +8,7 @@ import {
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { renderHtml, renderMarkdown } from "@/server/export/render";
-import type { Paragraph } from "@/server/ai/cleanup";
+import { blocksFromContentJson } from "@/server/content/document";
 
 export interface ExportRenderPayload {
   workspaceId: string;
@@ -66,22 +66,8 @@ export async function handleExportRender(payload: ExportRenderPayload) {
 
     if (!project) throw new Error("Project not found");
 
-    // 3. Extract paragraphs from content JSON
-    const contentDoc = draft.contentJson as {
-      type: string;
-      content: Array<{
-        type: string;
-        attrs?: { timestamp?: number };
-        content?: Array<{ type: string; text: string }>;
-      }>;
-    };
-
-    const paragraphs: Paragraph[] = (contentDoc.content || [])
-      .filter((node) => node.type === "paragraph" && node.content?.length)
-      .map((node) => ({
-        timestamp: node.attrs?.timestamp ?? 0,
-        text: (node.content || []).map((c) => c.text).join(""),
-      }));
+    // 3. Extract the body from content JSON, headings included
+    const blocks = blocksFromContentJson(draft.contentJson);
 
     // 4. Render
     let bodyText: string;
@@ -89,14 +75,14 @@ export async function handleExportRender(payload: ExportRenderPayload) {
     let extension: string;
 
     if (format === "html") {
-      bodyText = renderHtml(project.videoId, paragraphs, {
+      bodyText = renderHtml(project.videoId, blocks, {
         intro: draft.intro,
         summary: draft.summary,
       });
       mimeType = "text/html";
       extension = "html";
     } else {
-      bodyText = renderMarkdown(project.videoId, paragraphs, {
+      bodyText = renderMarkdown(project.videoId, blocks, {
         intro: draft.intro,
         summary: draft.summary,
         title: draft.title,

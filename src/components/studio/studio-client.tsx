@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { TiptapEditor } from "./tiptap-editor";
 import { TranscriptPanel } from "./transcript-panel";
@@ -8,6 +8,8 @@ import { TranscriptIssues } from "./transcript-issues";
 import { RunStatus } from "./run-status";
 import { CommentPanel } from "./comment-panel";
 import { ExportPanel } from "./export-panel";
+import { AutoTextarea } from "./auto-textarea";
+import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 
 interface StudioClientProps {
   workspaceId: string;
@@ -61,9 +63,22 @@ export function StudioClient({
 
   const canEdit = ["owner", "admin", "editor"].includes(userRole);
   const canReview = ["owner", "admin", "reviewer"].includes(userRole);
+  const fieldsEditable = canEdit && draft?.status === "working";
 
-  const handleEditorUpdate = useCallback(
-    async (json: Record<string, unknown>, text: string) => {
+  // Title, intro and summary are edited as plain fields, so they are held in
+  // local state and flushed on a debounce the same way the body autosaves.
+  const [title, setTitle] = useState(draft?.title ?? projectTitle);
+  const [intro, setIntro] = useState(draft?.intro ?? "");
+  const [summary, setSummary] = useState(draft?.summary ?? "");
+
+  useEffect(() => {
+    setTitle(draft?.title ?? projectTitle);
+    setIntro(draft?.intro ?? "");
+    setSummary(draft?.summary ?? "");
+  }, [draft?.id, draft?.title, draft?.intro, draft?.summary, projectTitle]);
+
+  const patchDraft = useCallback(
+    async (fields: Record<string, unknown>) => {
       if (!draft || !canEdit) return;
       setSaving(true);
       try {
@@ -72,11 +87,7 @@ export function StudioClient({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              draftVersionId: draft.id,
-              contentJson: json,
-              plainText: text,
-            }),
+            body: JSON.stringify({ draftVersionId: draft.id, ...fields }),
           }
         );
         setSaveFailed(!res.ok);
@@ -88,6 +99,29 @@ export function StudioClient({
       }
     },
     [draft, canEdit, workspaceId, projectId]
+  );
+
+  const fieldDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
+    };
+  }, []);
+
+  const saveField = useCallback(
+    (fields: Record<string, unknown>) => {
+      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
+      fieldDebounceRef.current = setTimeout(() => {
+        void patchDraft(fields);
+      }, 800);
+    },
+    [patchDraft]
+  );
+
+  const handleEditorUpdate = useCallback(
+    (json: Record<string, unknown>, text: string) =>
+      patchDraft({ contentJson: json, plainText: text }),
+    [patchDraft]
   );
 
   async function handleExport(format: "html" | "markdown") {
@@ -197,9 +231,23 @@ export function StudioClient({
       {/* Center - editor */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">{projectTitle}</h1>
-            <div className="flex items-center gap-2">
+          <div className="flex items-start justify-between gap-4">
+            {draft ? (
+              <input
+                value={title}
+                readOnly={!fieldsEditable}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  saveField({ title: e.target.value });
+                }}
+                placeholder="Post title"
+                aria-label="Post title"
+                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-2xl font-bold outline-none read-only:cursor-default hover:border-zinc-200 focus:border-blue-500 dark:hover:border-zinc-700"
+              />
+            ) : (
+              <h1 className="text-2xl font-bold">{projectTitle}</h1>
+            )}
+            <div className="flex shrink-0 items-center gap-2 pt-2">
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                 {projectStatus.replace("_", " ")}
               </span>
@@ -218,30 +266,58 @@ export function StudioClient({
           {draft ? (
             <div className="mt-6 space-y-6">
               {/* Intro */}
-              {draft.intro && (
-                <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                  <h3 className="text-xs font-semibold uppercase text-blue-600 dark:text-blue-400">
-                    Introduction
-                  </h3>
-                  <p className="mt-1 text-sm">{draft.intro}</p>
-                </div>
-              )}
+              <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                <h3 className="text-xs font-semibold uppercase text-blue-600 dark:text-blue-400">
+                  Introduction
+                </h3>
+                <AutoTextarea
+                  value={intro}
+                  readOnly={!fieldsEditable}
+                  placeholder="Introduce the post for readers..."
+                  className="mt-1"
+                  onChange={(value) => {
+                    setIntro(value);
+                    saveField({ intro: value });
+                  }}
+                />
+              </div>
 
               {/* Summary */}
-              {draft.summary && (
-                <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
-                  <h3 className="text-xs font-semibold uppercase text-zinc-400">
-                    Summary
-                  </h3>
-                  <p className="mt-1 text-sm">{draft.summary}</p>
-                </div>
-              )}
+              <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
+                <h3 className="text-xs font-semibold uppercase text-zinc-400">
+                  Summary
+                </h3>
+                <AutoTextarea
+                  value={summary}
+                  readOnly={!fieldsEditable}
+                  placeholder="Summarize the key points..."
+                  className="mt-1"
+                  onChange={(value) => {
+                    setSummary(value);
+                    saveField({ summary: value });
+                  }}
+                />
+              </div>
+
+              {/*
+                The disclaimer is rendered by the exporter, not stored in the
+                draft body, so it is shown here read-only as a preview of what
+                readers will see above the transcript.
+              */}
+              <div className="rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
+                <h3 className="text-xs font-semibold uppercase text-zinc-400">
+                  Transcript notice (added on export)
+                </h3>
+                <p className="mt-1 text-sm italic text-zinc-500">
+                  {TRANSCRIPT_DISCLAIMER}
+                </p>
+              </div>
 
               {/* Tiptap Editor */}
               <TiptapEditor
                 content={draft.contentJson}
                 onUpdate={canEdit ? handleEditorUpdate : undefined}
-                editable={canEdit && draft.status === "working"}
+                editable={fieldsEditable}
               />
             </div>
           ) : (

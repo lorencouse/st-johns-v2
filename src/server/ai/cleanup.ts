@@ -331,6 +331,57 @@ export function formatTimestamp(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
+/**
+ * Re-derive paragraph timestamps from the source segments.
+ *
+ * The cleanup prompt asks the model to "preserve the approximate timestamps",
+ * and it does not: on the second and later chunks of a long service it
+ * restarts its numbering near zero, so section markers march backwards
+ * partway down the post. Model-supplied timestamps are therefore discarded
+ * outright and rebuilt here.
+ *
+ * Cleaned text is a near-verbatim, slightly shortened rendering of its source,
+ * so a paragraph's position by word count maps closely onto the same position
+ * in the segment timeline. Anchoring that way is monotonic by construction and
+ * stays inside the chunk's real time span, which the model's numbers did not.
+ */
+export function anchorParagraphTimestamps(
+  paragraphs: Paragraph[],
+  segments: CaptionSegment[]
+): Paragraph[] {
+  if (paragraphs.length === 0 || segments.length === 0) return paragraphs;
+
+  // Cumulative source words, so a word offset can be resolved to a segment.
+  const boundaries: { wordsBefore: number; start: number }[] = [];
+  let sourceWords = 0;
+  for (const segment of segments) {
+    boundaries.push({ wordsBefore: sourceWords, start: segment.start });
+    sourceWords += wordCount(segment.text);
+  }
+  if (sourceWords === 0) return paragraphs;
+
+  const outputWords = paragraphs.reduce((sum, p) => sum + wordCount(p.text), 0);
+  if (outputWords === 0) return paragraphs;
+
+  const startAtWord = (target: number) => {
+    let low = 0;
+    let high = boundaries.length - 1;
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      if (boundaries[mid].wordsBefore <= target) low = mid;
+      else high = mid - 1;
+    }
+    return boundaries[low].start;
+  };
+
+  let consumed = 0;
+  return paragraphs.map((paragraph) => {
+    const target = Math.floor((consumed / outputWords) * sourceWords);
+    consumed += wordCount(paragraph.text);
+    return { timestamp: Math.round(startAtWord(target)), text: paragraph.text };
+  });
+}
+
 // --- AI Cleanup ---
 
 const CLEANUP_SYSTEM_PROMPT = `You are a transcript editor. Clean up the following transcript and return it as structured paragraphs.
@@ -429,12 +480,18 @@ async function aiCleanupChunk(
     return { paragraphs: fallbackParagraphs, tokensUsed, inputTokens, outputTokens, aiModel };
   }
 
-  let paragraphs = parseCleanupResponse(content, fallbackParagraphs);
+  const parsed = parseCleanupResponse(content, fallbackParagraphs);
 
-  paragraphs = paragraphs.map((p) => ({
+  let paragraphs = parsed.map((p) => ({
     timestamp: p.timestamp,
     text: fixPunctuation(removeFillerWords(p.text)),
   }));
+
+  // The fallback already carries exact segment times; only the model's own
+  // timestamps need rebuilding.
+  if (parsed !== fallbackParagraphs) {
+    paragraphs = anchorParagraphTimestamps(paragraphs, filtered);
+  }
 
   const final: Paragraph[] = [];
   for (let i = 0; i < paragraphs.length; i++) {
@@ -452,7 +509,7 @@ async function aiCleanupChunk(
 const CHUNK_SIZE = 200;
 const CHUNK_ATTEMPTS = 3;
 
-async function withRetries<T>(
+export async function withRetries<T>(
   fn: () => Promise<T>,
   attempts: number,
   label: string

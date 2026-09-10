@@ -10,6 +10,12 @@ import {
 } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { aiCleanup, generateSummary } from "@/server/ai/cleanup";
+import { generateStructure } from "@/server/ai/structure";
+import {
+  buildBlocks,
+  blocksToContentJson,
+  blocksToPlainText,
+} from "@/server/content/document";
 import type { CaptionSegment } from "@/server/youtube/api";
 
 export interface DraftGeneratePayload {
@@ -89,23 +95,28 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
     console.log(`[draft-generate] Running AI cleanup for ${video.title}`);
     const cleanupResult = await aiCleanup(captionSegments);
 
-    // 5. Generate intro + summary
-    console.log(`[draft-generate] Generating summary for ${video.title}`);
-    const summaryResult = await generateSummary(cleanupResult.paragraphs);
+    // 5. Generate intro + summary and the section outline. Neither depends on
+    // the other, and both are non-fatal, so they run together.
+    console.log(
+      `[draft-generate] Generating summary and structure for ${video.title}`
+    );
+    const [summaryResult, structureResult] = await Promise.all([
+      generateSummary(cleanupResult.paragraphs),
+      generateStructure(cleanupResult.paragraphs),
+    ]);
 
-    // 6. Build Tiptap-compatible content JSON
-    const contentJson = {
-      type: "doc",
-      content: cleanupResult.paragraphs.map((p) => ({
-        type: "paragraph",
-        attrs: { timestamp: p.timestamp },
-        content: [{ type: "text", text: p.text }],
-      })),
-    };
+    // 6. Build the Tiptap document with section headings interleaved
+    const blocks = buildBlocks(
+      cleanupResult.paragraphs,
+      structureResult.sections
+    );
+    const contentJson = blocksToContentJson(blocks);
+    const plainText = blocksToPlainText(blocks);
+    const draftTitle = structureResult.title || video.title;
 
-    const plainText = cleanupResult.paragraphs
-      .map((p) => p.text)
-      .join("\n\n");
+    console.log(
+      `[draft-generate] ${cleanupResult.paragraphs.length} paragraphs, ${structureResult.sections.length} section(s)`
+    );
 
     // 7. Persist atomically: reuse the video's project if one exists
     // (unique on workspace + sourceVideo prevents duplicates under races),
@@ -120,7 +131,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
             .values({
               workspaceId,
               sourceVideoId: videoId,
-              title: video.title,
+              title: draftTitle,
               status: "drafting",
               createdByUserId: userId,
             })
@@ -167,7 +178,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
             sourceTranscriptRevisionId: sourceRevision.id,
             versionNumber: nextVersion,
             status: "working",
-            title: video.title,
+            title: draftTitle,
             intro: summaryResult.intro || null,
             summary: summaryResult.summary || null,
             contentJson,
@@ -176,7 +187,11 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
               aiModel: cleanupResult.aiModel,
               cleanupTokens: cleanupResult.tokensUsed,
               summaryTokens: summaryResult.tokensUsed,
+              structureTokens: structureResult.tokensUsed,
               degradedChunks: cleanupResult.degradedChunks,
+              sections: structureResult.sections,
+              generatedTitle: structureResult.title,
+              sourceVideoTitle: video.title,
             },
             createdByUserId: userId,
           })
@@ -200,8 +215,10 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
               draftVersionId: draft.id,
               versionNumber: nextVersion,
               paragraphCount: cleanupResult.paragraphs.length,
+              sectionCount: structureResult.sections.length,
               cleanupTokens: cleanupResult.tokensUsed,
               summaryTokens: summaryResult.tokensUsed,
+              structureTokens: structureResult.tokensUsed,
             },
           })
           .where(eq(appRuns.id, runId));

@@ -1,5 +1,8 @@
-import type { Paragraph } from "@/server/ai/cleanup";
 import { formatTimestamp } from "@/server/ai/cleanup";
+import {
+  TRANSCRIPT_DISCLAIMER,
+  type DocBlock,
+} from "@/server/content/document";
 
 function escapeHtml(text: string): string {
   return text
@@ -8,9 +11,14 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function watchUrl(videoId: string, timestamp: number | null): string {
+  const base = `https://www.youtube.com/watch?v=${videoId}`;
+  return timestamp === null ? base : `${base}&t=${Math.floor(timestamp)}s`;
+}
+
 export function renderHtml(
   videoId: string,
-  paragraphs: Paragraph[],
+  blocks: DocBlock[],
   options?: { intro?: string | null; summary?: string | null }
 ): string {
   const embedUrl = `https://www.youtube.com/embed/${videoId}`;
@@ -26,10 +34,15 @@ export function renderHtml(
       "\n\n";
   }
 
-  const transcriptHtml = paragraphs
-    .map((p) => {
-      const ts = formatTimestamp(p.timestamp);
-      return `<p><strong>[${ts}]</strong> ${escapeHtml(p.text)}</p>`;
+  // Section headings carry a timestamp link back into the video; body
+  // paragraphs stay clean so the post reads as prose rather than as a log.
+  const bodyHtml = blocks
+    .map((block) => {
+      const text = escapeHtml(block.text);
+      if (block.type !== "heading") return `<p>${text}</p>`;
+      if (block.timestamp === null) return `<h2>${text}</h2>`;
+      const link = `<a href="${watchUrl(videoId, block.timestamp)}">${formatTimestamp(block.timestamp)}</a>`;
+      return `<h2>${text} <small>${link}</small></h2>`;
     })
     .join("\n");
 
@@ -41,13 +54,19 @@ export function renderHtml(
 
 <h2>Transcript</h2>
 
-${transcriptHtml}`;
+<p><em>${escapeHtml(TRANSCRIPT_DISCLAIMER)}</em></p>
+
+${bodyHtml}`;
 }
 
 export function renderMarkdown(
   videoId: string,
-  paragraphs: Paragraph[],
-  options?: { intro?: string | null; summary?: string | null; title?: string | null }
+  blocks: DocBlock[],
+  options?: {
+    intro?: string | null;
+    summary?: string | null;
+    title?: string | null;
+  }
 ): string {
   const parts: string[] = [];
 
@@ -63,13 +82,23 @@ export function renderMarkdown(
     parts.push(options.summary + "\n");
   }
 
-  parts.push(`[![Watch on YouTube](https://img.youtube.com/vi/${videoId}/0.jpg)](https://www.youtube.com/watch?v=${videoId})\n`);
+  parts.push(
+    `[![Watch on YouTube](https://img.youtube.com/vi/${videoId}/0.jpg)](https://www.youtube.com/watch?v=${videoId})\n`
+  );
   parts.push("---\n");
   parts.push("## Transcript\n");
+  parts.push(`_${TRANSCRIPT_DISCLAIMER}_\n`);
 
-  for (const p of paragraphs) {
-    const ts = formatTimestamp(p.timestamp);
-    parts.push(`**[${ts}]** ${p.text}\n`);
+  for (const block of blocks) {
+    if (block.type === "heading") {
+      const anchor =
+        block.timestamp === null
+          ? ""
+          : ` [${formatTimestamp(block.timestamp)}](${watchUrl(videoId, block.timestamp)})`;
+      parts.push(`### ${block.text}${anchor}\n`);
+    } else {
+      parts.push(`${block.text}\n`);
+    }
   }
 
   return parts.join("\n");
