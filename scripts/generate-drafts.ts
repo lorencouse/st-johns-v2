@@ -16,6 +16,9 @@
  *   --concurrency <n>   Posts to generate at once        (default: 4)
  *   --skip-structured   Skip videos whose draft already has section headings,
  *                       so an interrupted batch resumes without paying twice
+ *   --skip-redone-minutes <n>
+ *                       Skip videos whose draft was rewritten in the last n
+ *                       minutes, so an interrupted --redo batch resumes
  *
  * Note: this calls the OpenAI API, so it costs money — roughly a cent or
  * two per service with gpt-4o-mini. Start with a small --limit.
@@ -31,7 +34,7 @@ import {
   exportArtifacts,
   appRuns,
 } from "@/server/db/schema";
-import { and, eq, inArray, desc, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, desc, sql } from "drizzle-orm";
 import { handleDraftGenerate } from "@/server/jobs/handlers/draft-generate";
 import { handleExportRender } from "@/server/jobs/handlers/export-render";
 import { mkdir, writeFile } from "fs/promises";
@@ -50,6 +53,7 @@ const LIMIT = parseInt(arg("limit", "5")!, 10);
 const ONLY_VIDEO = arg("video");
 const OUT_DIR = arg("out");
 const CONCURRENCY = Math.max(1, parseInt(arg("concurrency", "4")!, 10));
+const SKIP_REDONE_MINUTES = parseInt(arg("skip-redone-minutes", "0")!, 10);
 
 async function main() {
   const [workspace] = await db
@@ -119,6 +123,33 @@ async function main() {
     const skip = new Set(structured.map((r) => r.videoId));
     videoIds = videoIds.filter((id) => !skip.has(id));
     if (skip.size) console.log(`Skipping ${skip.size} already-structured draft(s)`);
+  }
+
+  // Resume support for --redo: a draft written in the last N minutes came from
+  // this same batch, so re-running it would pay for identical work. Time-based
+  // rather than shape-based, because a --redo batch regenerates drafts that
+  // already have headings and so are indistinguishable from unfinished ones.
+  if (SKIP_REDONE_MINUTES > 0 && videoIds.length) {
+    const cutoff = new Date(Date.now() - SKIP_REDONE_MINUTES * 60_000);
+    const fresh = await db
+      .select({ videoId: contentProjects.sourceVideoId })
+      .from(contentProjects)
+      .innerJoin(
+        draftVersions,
+        eq(draftVersions.contentProjectId, contentProjects.id)
+      )
+      .where(
+        and(
+          eq(contentProjects.workspaceId, workspace.id),
+          gt(draftVersions.createdAt, cutoff)
+        )
+      );
+    const skip = new Set(fresh.map((r) => r.videoId));
+    videoIds = videoIds.filter((id) => !skip.has(id));
+    if (skip.size)
+      console.log(
+        `Skipping ${skip.size} draft(s) regenerated in the last ${SKIP_REDONE_MINUTES} min`
+      );
   }
 
   const queue = videoIds.slice(0, LIMIT);
