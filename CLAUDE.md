@@ -23,7 +23,12 @@ back on, so:
 - The `db:push` script has been removed from `package.json`, and must not be
   added back: drizzle-kit push diffs the schema against the live database and
   drops columns with no migration file. Use `db:generate` then `db:migrate`.
-- A script's `--apply` flag writes live data. Dry-run first; they all support it.
+- `backfill-live-status`, `ingest-missing`, `repair-ingest-status` and
+  `prune-empty-transcripts` write live data only with `--apply`; run them
+  without it first to see a dry run.
+- `ingest-channel.ts`, `generate-drafts.ts` (which also spends OpenAI money)
+  and `grant-access.ts` have no dry run and write to production as soon as
+  they run. Never run them without the captain's say-so.
 - Run `./scripts/tunnel.sh` by hand before scripts, when the dev server is not up.
 
 ## Architecture
