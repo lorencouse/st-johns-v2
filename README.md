@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# st-johns-v2
 
-## Getting Started
+Turns a YouTube video library into blog-ready posts. Videos are synced from a
+channel, transcribed, cleaned up and structured by OpenAI, edited and reviewed
+in a Tiptap studio, then exported as HTML or Markdown.
 
-First, run the development server:
+Built with Next.js 16, Drizzle ORM on PostgreSQL, BullMQ on Redis, Auth.js v5
+(Google OAuth) and OpenAI.
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+cp .env.example .env   # then fill in the values
+bun dev                # opens the SSH tunnel, then serves http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Use `bun`, not npm or pnpm.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**There is one database, and it is production.** `bun dev` runs
+`scripts/tunnel.sh`, which tunnels the Coolify-hosted Postgres and Redis to
+`localhost:15432` and `localhost:16379`. There is no local copy, so:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Change the schema with `bun run db:generate` then `bun run db:migrate`.
+  Never use `drizzle-kit push`: it drops columns that have no migration file.
+- Scripts in `scripts/` that take `--apply` write live data. Run them without
+  it first to see a dry run.
+- Run `./scripts/tunnel.sh` by hand before running a script when the dev
+  server is not up.
 
-## Learn More
+## Checks
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bunx tsc --noEmit
+bun run lint
+bun test
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+CI (`.github/workflows/ci.yml`) runs these, plus
+`bun audit --audit-level=critical`, on pull requests and pushes to `main`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+The `Dockerfile` builds a standalone image (the build runs under Node, because
+Bun crashes on `next build` for Next 16.3) and is deployed through Coolify.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `AGENTS.md` for the architecture, data model and environment variables.

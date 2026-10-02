@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Standalone probe of the unofficial timedtext caption path (no OAuth needed).
  * Run: bun scripts/timedtext-spike.ts

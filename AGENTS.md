@@ -9,11 +9,22 @@ A Next.js web app that converts YouTube video libraries into blog-ready content 
 ```bash
 bun install
 bun run db:generate   # Generate Drizzle migrations
-bun run db:migrate    # Run migrations against Postgres
-bun dev               # Start dev server at localhost:3000
+bun run db:migrate    # Run migrations — against PRODUCTION, see below
+bun dev               # Opens the SSH tunnel, then serves localhost:3000
 ```
 
-Requires: PostgreSQL, Redis, Google OAuth credentials, OpenAI API key.
+Requires: Redis, Google OAuth credentials, OpenAI API key.
+
+**There is one database, and it is production.** `DATABASE_URL` points at the
+Coolify Postgres through the SSH tunnel `scripts/tunnel.sh` opens on
+`localhost:15432`; `bun dev` opens it first. There is no local copy to fall
+back on, so:
+
+- The `db:push` script has been removed from `package.json`, and must not be
+  added back: drizzle-kit push diffs the schema against the live database and
+  drops columns with no migration file. Use `db:generate` then `db:migrate`.
+- A script's `--apply` flag writes live data. Dry-run first; they all support it.
+- Run `./scripts/tunnel.sh` by hand before scripts, when the dev server is not up.
 
 ## Architecture
 
