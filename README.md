@@ -23,8 +23,12 @@ Use `bun`, not npm or pnpm.
 
 - Change the schema with `bun run db:generate` then `bun run db:migrate`.
   Never use `drizzle-kit push`: it drops columns that have no migration file.
-- Scripts in `scripts/` that take `--apply` write live data. Run them without
-  it first to see a dry run.
+- `backfill-live-status`, `ingest-missing`, `repair-ingest-status` and
+  `prune-empty-transcripts` write live data only with `--apply`; run them
+  without it first to see a dry run.
+- `ingest-channel.ts`, `generate-drafts.ts` (which also spends OpenAI money)
+  and `grant-access.ts` have no dry run and write to production as soon as
+  they run. Never run them without the captain's say-so.
 - Run `./scripts/tunnel.sh` by hand before running a script when the dev
   server is not up.
 
