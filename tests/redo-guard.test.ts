@@ -4,7 +4,11 @@ import {
   blocksToPlainText,
   type DocBlock,
 } from "@/server/content/document";
-import { redoBlockReason, type GuardDraft } from "@/server/content/redo-guard";
+import {
+  redoBlockReason,
+  savesAnEdit,
+  type GuardDraft,
+} from "@/server/content/redo-guard";
 
 const blocks: DocBlock[] = [
   { type: "heading", text: "Welcome", timestamp: 0 },
@@ -29,6 +33,14 @@ function generated(overrides: Partial<GuardDraft> = {}): GuardDraft {
 }
 
 const drafting = { status: "drafting" };
+
+/** What the studio autosave sends: editor.getJSON() and editor.getText(). */
+function studioSave(edited: DocBlock[]) {
+  return {
+    contentJson: blocksToContentJson(edited),
+    plainText: edited.map((b) => b.text).join("\n\n"),
+  };
+}
 
 describe("redoBlockReason", () => {
   test("allows replacing an untouched generated draft", () => {
@@ -104,12 +116,28 @@ describe("redoBlockReason", () => {
   test("keeps a draft whose body text was changed", () => {
     const edited = [...blocks];
     edited[1] = { ...edited[1], text: "Good morning, St Johns." };
-    expect(
-      redoBlockReason(
-        drafting,
-        generated({ contentJson: blocksToContentJson(edited) })
-      )
-    ).toBe("active draft body was edited");
+    expect(redoBlockReason(drafting, generated(studioSave(edited)))).toBe(
+      "active draft body was edited"
+    );
+  });
+
+  test("keeps a legacy heading-less draft it cannot check for edits", () => {
+    const legacy = blocks.filter((b) => b.type === "paragraph");
+    const edited = [...legacy];
+    edited[0] = { ...edited[0], text: "Good morning, St Johns." };
+    for (const body of [
+      { plainText: blocksToPlainText(legacy), contentJson: blocksToContentJson(legacy) },
+      studioSave(edited),
+    ]) {
+      const draft = generated({
+        ...body,
+        title: "Sunday 10am Live",
+        metadataJson: { sourceVideoTitle: "Sunday 10am Live" },
+      });
+      expect(redoBlockReason(drafting, draft)).toBe(
+        "legacy draft may have been edited before edits were recorded"
+      );
+    }
   });
 
   test("ignores empty paragraphs the generator wrote", () => {
@@ -126,5 +154,55 @@ describe("redoBlockReason", () => {
       contentJson: blocksToContentJson(withEmpty),
     });
     expect(redoBlockReason(drafting, draft)).toBeNull();
+  });
+});
+
+describe("savesAnEdit", () => {
+  const stored = {
+    title: "Sunday Service",
+    intro: null,
+    summary: "A service.",
+    contentJson: blocksToContentJson(blocks),
+  };
+
+  test("ignores the editor re-saving a draft it only opened", () => {
+    const legacyStored = {
+      ...stored,
+      contentJson: {
+        type: "doc",
+        content: [
+          { type: "paragraph", attrs: { timestamp: 0 }, content: [] },
+          {
+            type: "paragraph",
+            attrs: { timestamp: 5 },
+            content: [{ type: "text", text: "Hello." }],
+          },
+        ],
+      },
+    };
+    const editorJson = {
+      type: "doc",
+      content: [
+        { type: "paragraph", attrs: { timestamp: 0, time: null } },
+        {
+          type: "paragraph",
+          attrs: { time: null, timestamp: 5 },
+          content: [{ type: "text", text: "Hello." }],
+        },
+      ],
+    };
+    expect(savesAnEdit(legacyStored, { contentJson: editorJson })).toBe(false);
+    expect(
+      savesAnEdit(stored, { contentJson: blocksToContentJson(blocks), intro: "" })
+    ).toBe(false);
+  });
+
+  test("counts a changed body, title, intro or summary", () => {
+    const edited = [...blocks];
+    edited[1] = { ...edited[1], text: "Good morning, St Johns." };
+    expect(savesAnEdit(stored, studioSave(edited))).toBe(true);
+    expect(savesAnEdit(stored, { title: "Easter Morning" })).toBe(true);
+    expect(savesAnEdit(stored, { intro: "Welcome." })).toBe(true);
+    expect(savesAnEdit(stored, { summary: "" })).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { draftVersions, contentProjects } from "@/server/db/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { savesAnEdit } from "@/server/content/redo-guard";
 
 // PATCH: Save draft content (auto-save from editor)
 export async function PATCH(
@@ -62,9 +63,11 @@ export async function PATCH(
   }
 
   // Mark the draft as human-edited so a batch regeneration keeps it.
-  updates.metadataJson = sql`${draftVersions.metadataJson} || ${JSON.stringify({
-    humanEditedAt: new Date().toISOString(),
-  })}::jsonb`;
+  if (savesAnEdit(draft, { contentJson, intro, summary, title })) {
+    updates.metadataJson = sql`${draftVersions.metadataJson} || ${JSON.stringify({
+      humanEditedAt: new Date().toISOString(),
+    })}::jsonb`;
+  }
 
   await db
     .update(draftVersions)

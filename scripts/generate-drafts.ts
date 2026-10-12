@@ -299,7 +299,7 @@ async function main() {
         console.log(`  \u2713 [${++finished}/${queue.length}] ${label}`);
       } catch (err) {
         if (err instanceof DraftProtectedError) {
-          kept.push(`${label}: ${err.message}`);
+          kept.push(`${videoId} (${label}): ${err.message}`);
           console.log(`  - [${++finished}/${queue.length}] ${label}\n      ${err.message}`);
           continue;
         }
@@ -322,6 +322,8 @@ async function main() {
       (kept.length ? `, ${kept.length} kept.` : ".")
   );
   for (const f of failures) console.log(`  - ${f.slice(0, 140)}`);
+  if (kept.length) console.log(`Kept (pass --force to replace):`);
+  for (const k of kept) console.log(`  - ${k}`);
   process.exit(0);
 }
 
