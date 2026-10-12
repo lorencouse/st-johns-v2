@@ -29,6 +29,9 @@ back on, so:
 - `ingest-channel.ts`, `generate-drafts.ts` (which also spends OpenAI money)
   and `grant-access.ts` have no dry run and write to production as soon as
   they run. Never run them without the captain's say-so.
+  `generate-drafts --redo` keeps posts under review, approved, or edited in
+  the studio, and legacy drafts with no `generatedTitle`; `--force` replaces
+  those too and needs the captain's say-so.
 - Run `./scripts/tunnel.sh` by hand before scripts, when the dev server is not up.
 
 ## Architecture

@@ -63,7 +63,7 @@ export function TiptapEditor({
       const currentJson = JSON.stringify(editor.getJSON());
       const newJson = JSON.stringify(content);
       if (currentJson !== newJson) {
-        editor.commands.setContent(content);
+        editor.commands.setContent(content, { emitUpdate: false });
       }
     }
   }, [editor, content]);
