@@ -13,8 +13,9 @@
  *   --video <ids>       Only these YouTube video ids (comma-separated)
  *   --out <dir>         Also write each export to disk
  *   --redo              Regenerate even if a draft exists. Keeps any post
- *                       that is under review, approved, or edited in the
- *                       studio (see src/server/content/redo-guard.ts)
+ *                       that is under review, approved, edited in the
+ *                       studio, or a legacy draft whose edits cannot be
+ *                       detected (see src/server/content/redo-guard.ts)
  *   --force             With --redo, replace those protected posts too
  *   --concurrency <n>   Posts to generate at once        (default: 4)
  *   --skip-structured   Skip videos whose draft already has section headings,
