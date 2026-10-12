@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { draftVersions, contentProjects } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 // PATCH: Save draft content (auto-save from editor)
 export async function PATCH(
@@ -60,6 +60,11 @@ export async function PATCH(
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
+
+  // Mark the draft as human-edited so a batch regeneration keeps it.
+  updates.metadataJson = sql`${draftVersions.metadataJson} || ${JSON.stringify({
+    humanEditedAt: new Date().toISOString(),
+  })}::jsonb`;
 
   await db
     .update(draftVersions)

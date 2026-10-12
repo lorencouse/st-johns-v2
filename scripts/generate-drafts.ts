@@ -10,9 +10,12 @@
  * Flags:
  *   --workspace <slug>  Workspace to work in            (default: st-johns)
  *   --limit <n>         Max posts to generate this run  (default: 5)
- *   --video <id>        Only this YouTube video id
+ *   --video <ids>       Only these YouTube video ids (comma-separated)
  *   --out <dir>         Also write each export to disk
- *   --redo              Regenerate even if a draft exists
+ *   --redo              Regenerate even if a draft exists. Keeps any post
+ *                       that is under review, approved, or edited in the
+ *                       studio (see src/server/content/redo-guard.ts)
+ *   --force             With --redo, replace those protected posts too
  *   --concurrency <n>   Posts to generate at once        (default: 4)
  *   --skip-structured   Skip videos whose draft already has section headings,
  *                       so an interrupted batch resumes without paying twice
@@ -35,7 +38,11 @@ import {
   appRuns,
 } from "@/server/db/schema";
 import { and, eq, gt, inArray, desc, sql } from "drizzle-orm";
-import { handleDraftGenerate } from "@/server/jobs/handlers/draft-generate";
+import {
+  handleDraftGenerate,
+  DraftProtectedError,
+} from "@/server/jobs/handlers/draft-generate";
+import { redoBlockReason } from "@/server/content/redo-guard";
 import { handleExportRender } from "@/server/jobs/handlers/export-render";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
@@ -50,7 +57,8 @@ const flag = (name: string) => process.argv.includes(`--${name}`);
 
 const WORKSPACE_SLUG = arg("workspace", "st-johns")!;
 const LIMIT = parseInt(arg("limit", "5")!, 10);
-const ONLY_VIDEO = arg("video");
+const ONLY_VIDEOS = arg("video")?.split(",").map((id) => id.trim()).filter(Boolean);
+const FORCE = flag("force");
 const OUT_DIR = arg("out");
 const CONCURRENCY = Math.max(1, parseInt(arg("concurrency", "4")!, 10));
 const SKIP_REDONE_MINUTES = parseInt(arg("skip-redone-minutes", "0")!, 10);
@@ -83,7 +91,7 @@ async function main() {
     .where(eq(transcriptRevisions.workspaceId, workspace.id));
   let videoIds = transcribed.map((r) => r.videoId);
 
-  if (ONLY_VIDEO) videoIds = videoIds.filter((id) => id === ONLY_VIDEO);
+  if (ONLY_VIDEOS) videoIds = videoIds.filter((id) => ONLY_VIDEOS.includes(id));
 
   // Skip ones that already have a draft, unless --redo.
   if (!flag("redo") && videoIds.length) {
@@ -102,6 +110,36 @@ async function main() {
       );
     const skip = new Set(done.map((d) => d.videoId));
     videoIds = videoIds.filter((id) => !skip.has(id));
+  }
+
+  // A redo must not replace a post someone has reviewed or edited, unless
+  // --force. The handler rechecks under lock; this just avoids the AI spend.
+  if (flag("redo") && !FORCE && videoIds.length) {
+    const existing = await db
+      .select({ project: contentProjects, draft: draftVersions })
+      .from(contentProjects)
+      .leftJoin(
+        draftVersions,
+        eq(draftVersions.id, contentProjects.activeDraftVersionId)
+      )
+      .where(
+        and(
+          eq(contentProjects.workspaceId, workspace.id),
+          inArray(contentProjects.sourceVideoId, videoIds)
+        )
+      );
+    const protectedIds = new Map<string, string>();
+    for (const { project, draft } of existing) {
+      const reason = redoBlockReason(project, draft);
+      if (reason) protectedIds.set(project.sourceVideoId, reason);
+    }
+    videoIds = videoIds.filter((id) => !protectedIds.has(id));
+    if (protectedIds.size) {
+      console.log(
+        `Keeping ${protectedIds.size} reviewed or edited draft(s); pass --force to replace them:`
+      );
+      for (const [id, reason] of protectedIds) console.log(`  - ${id}: ${reason}`);
+    }
   }
 
   // Resume support: a draft carrying heading nodes came from the structure
@@ -188,6 +226,7 @@ async function main() {
       videoId,
       userId,
       runId: draftRun.id,
+      keepEditedDrafts: !FORCE,
     });
 
     // --- Locate what the draft run produced ---
@@ -244,6 +283,7 @@ async function main() {
   let ok = 0;
   let finished = 0;
   const failures: string[] = [];
+  const kept: string[] = [];
   const startedAt = Date.now();
 
   // Workers pull the next video as they free up, so one 90-minute service does
@@ -258,6 +298,11 @@ async function main() {
         ok++;
         console.log(`  \u2713 [${++finished}/${queue.length}] ${label}`);
       } catch (err) {
+        if (err instanceof DraftProtectedError) {
+          kept.push(`${label}: ${err.message}`);
+          console.log(`  - [${++finished}/${queue.length}] ${label}\n      ${err.message}`);
+          continue;
+        }
         const message = err instanceof Error ? err.message : String(err);
         failures.push(`${label}: ${message}`);
         console.log(
@@ -272,7 +317,10 @@ async function main() {
   );
 
   const mins = ((Date.now() - startedAt) / 60000).toFixed(1);
-  console.log(`\nDone in ${mins} min: ${ok} posts generated, ${failures.length} failed.`);
+  console.log(
+    `\nDone in ${mins} min: ${ok} posts generated, ${failures.length} failed` +
+      (kept.length ? `, ${kept.length} kept.` : ".")
+  );
   for (const f of failures) console.log(`  - ${f.slice(0, 140)}`);
   process.exit(0);
 }

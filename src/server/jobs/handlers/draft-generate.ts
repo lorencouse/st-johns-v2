@@ -9,6 +9,7 @@ import {
   appRuns,
 } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { redoBlockReason } from "@/server/content/redo-guard";
 import { aiCleanup, generateSummary } from "@/server/ai/cleanup";
 import { generateStructure } from "@/server/ai/structure";
 import {
@@ -24,6 +25,56 @@ export interface DraftGeneratePayload {
   userId: string;
   runId: string;
   projectId?: string; // if creating draft for existing project
+  /**
+   * Refuse to replace an active draft that is under review, approved, or
+   * edited by a person (see redo-guard). Batch regeneration sets this.
+   */
+  keepEditedDrafts?: boolean;
+}
+
+/** The project's active draft must be kept; nothing was written. */
+export class DraftProtectedError extends Error {
+  constructor(reason: string) {
+    super(`Kept existing draft: ${reason}`);
+    this.name = "DraftProtectedError";
+  }
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Throw DraftProtectedError when the video's project has an active draft a
+ * regeneration must not replace. `lock` holds the project row until the
+ * surrounding transaction ends, so an approval cannot slip in between the
+ * check and the write.
+ */
+async function assertReplaceable(
+  conn: typeof db | Tx,
+  workspaceId: string,
+  videoId: string,
+  lock: boolean
+) {
+  const query = conn
+    .select({
+      project: contentProjects,
+      draft: draftVersions,
+    })
+    .from(contentProjects)
+    .leftJoin(
+      draftVersions,
+      eq(draftVersions.id, contentProjects.activeDraftVersionId)
+    )
+    .where(
+      and(
+        eq(contentProjects.workspaceId, workspaceId),
+        eq(contentProjects.sourceVideoId, videoId)
+      )
+    )
+    .limit(1);
+  const [row] = lock ? await query.for("update", { of: contentProjects }) : await query;
+  if (!row) return;
+  const reason = redoBlockReason(row.project, row.draft);
+  if (reason) throw new DraftProtectedError(reason);
 }
 
 export async function handleDraftGenerate(payload: DraftGeneratePayload) {
@@ -50,6 +101,11 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
 
     if (!result) throw new Error("Video not found");
     const video = result.video;
+
+    // Check before paying for the AI passes; rechecked under lock below.
+    if (payload.keepEditedDrafts) {
+      await assertReplaceable(db, workspaceId, videoId, false);
+    }
 
     // 2. Get the best available transcript revision (prefer human_edited > cleaned > normalized > raw)
     const revisions = await db
@@ -160,6 +216,10 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
           }
         }
 
+        if (payload.keepEditedDrafts) {
+          await assertReplaceable(tx, workspaceId, videoId, true);
+        }
+
         const existingDrafts = await tx
           .select({ versionNumber: draftVersions.versionNumber })
           .from(draftVersions)
@@ -231,6 +291,17 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       `[draft-generate] Created draft v${nextVersion} (${draftId}) for project ${projectId}`
     );
   } catch (error) {
+    if (error instanceof DraftProtectedError) {
+      await db
+        .update(appRuns)
+        .set({
+          status: "cancelled",
+          finishedAt: new Date(),
+          outputJson: { skipped: error.message },
+        })
+        .where(eq(appRuns.id, runId));
+      throw error;
+    }
     // Failure state is written by the worker's final-failure handler.
     console.error(`[draft-generate] Failed:`, error);
     throw error;
