@@ -59,7 +59,7 @@ export function Pagination({
 
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm tabular-nums text-zinc-500">
         Showing{" "}
         <span className="font-medium text-zinc-700 dark:text-zinc-200">
           {rangeStart}
@@ -76,7 +76,7 @@ export function Pagination({
         {total === 1 ? "" : "s"}
       </p>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-zinc-500">
           <span className="hidden sm:inline">Per page</span>
           <select
@@ -118,7 +118,7 @@ export function Pagination({
         >
           Previous
         </button>
-        <span className="px-1 text-sm text-zinc-500">
+        <span className="whitespace-nowrap px-1 text-sm tabular-nums text-zinc-500">
           Page {page} of {pageCount}
         </span>
         <button

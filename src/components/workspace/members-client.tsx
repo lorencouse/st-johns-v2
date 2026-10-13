@@ -44,8 +44,8 @@ export function MembersClient({
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Members</h1>
         {canInvite && (
           <button
@@ -57,13 +57,13 @@ export function MembersClient({
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-zinc-500">
-              <th className="pb-2 font-medium">Name</th>
-              <th className="pb-2 font-medium">Email</th>
-              <th className="pb-2 font-medium">Role</th>
+              <th className="pb-2 pr-4 font-medium">Name</th>
+              <th className="pb-2 pr-4 font-medium">Email</th>
+              <th className="pb-2 pr-4 font-medium">Role</th>
             </tr>
           </thead>
           <tbody>
@@ -75,9 +75,9 @@ export function MembersClient({
                 <td className="py-3 pr-4 font-medium">
                   {m.userName || "Unnamed"}
                 </td>
-                <td className="py-3 pr-4 text-zinc-500">{m.userEmail}</td>
+                <td className="min-w-32 py-3 pr-4 break-all text-zinc-500">{m.userEmail}</td>
                 <td className="py-3">
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                  <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                     {m.role}
                   </span>
                 </td>
@@ -89,13 +89,14 @@ export function MembersClient({
 
       {pendingInvites.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold">Pending Invites</h2>
-          <table className="mt-3 w-full text-sm">
+          <h2 className="text-lg font-semibold">Pending invites</h2>
+          <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-zinc-500">
-                <th className="pb-2 font-medium">Email</th>
-                <th className="pb-2 font-medium">Role</th>
-                <th className="pb-2 font-medium">Expires</th>
+                <th className="pb-2 pr-4 font-medium">Email</th>
+                <th className="pb-2 pr-4 font-medium">Role</th>
+                <th className="pb-2 pr-4 font-medium">Expires</th>
                 {canInvite && <th className="pb-2 font-medium"></th>}
               </tr>
             </thead>
@@ -105,13 +106,13 @@ export function MembersClient({
                   key={inv.id}
                   className="border-b border-zinc-100 dark:border-zinc-800"
                 >
-                  <td className="py-3 pr-4 text-zinc-500">{inv.email}</td>
+                  <td className="min-w-32 py-3 pr-4 break-all text-zinc-500">{inv.email}</td>
                   <td className="py-3 pr-4">
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                    <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                       {inv.role}
                     </span>
                   </td>
-                  <td className="py-3 pr-4 text-zinc-400 text-xs">
+                  <td className="whitespace-nowrap py-3 pr-4 text-zinc-400 text-xs">
                     {new Date(inv.expiresAt).toLocaleDateString()}
                   </td>
                   {canInvite && (
@@ -128,6 +129,7 @@ export function MembersClient({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

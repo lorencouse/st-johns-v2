@@ -87,7 +87,7 @@ export function ReconnectGoogleButton({
             {!hasYoutube ? (
               <a
                 href={`/api/auth/youtube-connect?redirect=${encodeURIComponent(redirectPath)}&workspaceId=${encodeURIComponent(workspaceId)}`}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                className="whitespace-nowrap rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 Connect YouTube
               </a>

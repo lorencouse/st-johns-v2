@@ -177,7 +177,7 @@ export function LibraryDashboard({
   );
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {needsReconnect && (
         <section className="mb-6 rounded-[24px] border border-amber-300 bg-amber-50 p-4 shadow-sm dark:border-amber-800 dark:bg-amber-950/30">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -192,7 +192,7 @@ export function LibraryDashboard({
             </div>
             <a
               href={`/api/auth/youtube-connect?workspaceId=${workspaceId}&redirect=${encodeURIComponent(`/w/${workspaceSlug}/library`)}`}
-              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              className="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
             >
               Reconnect YouTube
             </a>
@@ -212,7 +212,7 @@ export function LibraryDashboard({
                 imported videos and playlists are ready.
               </p>
             </div>
-            <div className="min-w-[220px]">
+            <div className="w-full md:w-auto md:min-w-[220px]">
               <RunStatus
                 runId={pendingRunId}
                 onSuccess={() => {
@@ -231,7 +231,7 @@ export function LibraryDashboard({
         </section>
       )}
 
-      <section className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-[radial-gradient(circle_at_top_left,_rgba(29,78,216,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(244,244,245,0.96))] p-6 shadow-sm dark:border-zinc-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.15),_transparent_30%),linear-gradient(135deg,_rgba(9,9,11,0.98),_rgba(24,24,27,0.96))]">
+      <section className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-[radial-gradient(circle_at_top_left,_rgba(29,78,216,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(244,244,245,0.96))] p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.15),_transparent_30%),linear-gradient(135deg,_rgba(9,9,11,0.98),_rgba(24,24,27,0.96))]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-400">
@@ -279,8 +279,8 @@ export function LibraryDashboard({
         </div>
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <section className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold">Workflow views</h2>
@@ -309,7 +309,7 @@ export function LibraryDashboard({
                 key={filter}
                 type="button"
                 onClick={() => setFilter(filter)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium tabular-nums transition ${
                   activeFilter === filter
                     ? "border-blue-600 bg-blue-600 text-white"
                     : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
@@ -330,7 +330,7 @@ export function LibraryDashboard({
               <div className="mt-5">
                 <a
                   href={`/api/auth/youtube-connect?redirect=${encodeURIComponent(`/w/${workspaceSlug}/library`)}&workspaceId=${encodeURIComponent(workspaceId)}`}
-                  className="inline-flex rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+                  className="inline-flex whitespace-nowrap rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
                 >
                   Connect YouTube
                 </a>
@@ -343,7 +343,7 @@ export function LibraryDashboard({
                 Try clearing the search or switching to a broader workflow
                 filter.
               </p>
-              <div className="mt-5 flex justify-center gap-3">
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -366,7 +366,7 @@ export function LibraryDashboard({
           ) : (
             <>
               <div
-                className={`mt-6 overflow-hidden rounded-2xl border border-zinc-200 transition-opacity dark:border-zinc-800 ${
+                className={`mt-6 overflow-x-auto rounded-2xl border border-zinc-200 transition-opacity dark:border-zinc-800 ${
                   isPending ? "opacity-60" : ""
                 }`}
               >
@@ -417,8 +417,8 @@ export function LibraryDashboard({
           )}
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="min-w-0 space-y-6">
+          <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">Playlists</h2>
@@ -426,7 +426,7 @@ export function LibraryDashboard({
                   Imported with the channel so the library shows both uploads and playlist structure immediately.
                 </p>
               </div>
-              <p className="text-2xl font-semibold">{playlists.length}</p>
+              <p className="text-2xl font-semibold tabular-nums">{playlists.length}</p>
             </div>
             {playlists.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50">
@@ -437,24 +437,24 @@ export function LibraryDashboard({
                 {playlists.map((playlist) => (
                   <div
                     key={playlist.id}
-                    className="flex items-center justify-between rounded-2xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="truncate font-medium">{playlist.title}</p>
                         {playlist.kind === "uploads" && (
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                          <span className="shrink-0 whitespace-nowrap rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                             Uploads
                           </span>
                         )}
                       </div>
                       {playlist.channelTitle && (
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-1 truncate text-xs text-zinc-500">
                           {playlist.channelTitle}
                         </p>
                       )}
                     </div>
-                    <p className="shrink-0 text-xs text-zinc-500">
+                    <p className="shrink-0 whitespace-nowrap text-xs tabular-nums text-zinc-500">
                       {playlist.itemCount} video{playlist.itemCount === 1 ? "" : "s"}
                     </p>
                   </div>
@@ -463,7 +463,7 @@ export function LibraryDashboard({
             )}
           </div>
 
-          <div className="rounded-[24px] border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">Setup checklist</h2>
@@ -472,7 +472,7 @@ export function LibraryDashboard({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-semibold">{completionPercent}%</p>
+                <p className="text-2xl font-semibold tabular-nums">{completionPercent}%</p>
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
                   completed
                 </p>
@@ -514,7 +514,7 @@ export function LibraryDashboard({
                       {!item.done && item.href && (
                         <Link
                           href={`/w/${workspaceSlug}/${item.href}`}
-                          className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                          className="mt-3 inline-flex whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
                         >
                           {item.actionLabel}
                         </Link>
@@ -523,7 +523,7 @@ export function LibraryDashboard({
                         <button
                           type="button"
                           onClick={() => setFilter(item.filter)}
-                          className="mt-3 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                          className="mt-3 inline-flex max-w-full text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
                         >
                           {item.actionLabel}
                         </button>
@@ -569,7 +569,7 @@ function SummaryCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border px-4 py-3 text-left transition ${
+      className={`min-w-0 whitespace-normal rounded-2xl border px-4 py-3 text-left transition ${
         active
           ? "border-blue-600 bg-blue-600 text-white shadow-sm"
           : "border-zinc-200 bg-white/80 text-zinc-900 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:hover:border-zinc-600"
@@ -578,7 +578,7 @@ function SummaryCard({
       <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${active ? "text-blue-100" : "text-zinc-500"}`}>
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       <p className={`mt-1 text-xs ${active ? "text-blue-100" : "text-zinc-500"}`}>
         {detail}
       </p>
@@ -590,7 +590,7 @@ function SignalStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl bg-white/5 p-3">
       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-white">{value}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-white">{value}</p>
     </div>
   );
 }

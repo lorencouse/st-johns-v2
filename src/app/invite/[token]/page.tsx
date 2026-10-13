@@ -52,9 +52,9 @@ export default async function AcceptInvitePage({
           </p>
           <a
             href="/app"
-            className="mt-4 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+            className="mt-4 inline-block whitespace-nowrap rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
           >
-            Go to App
+            Go to app
           </a>
         </div>
       </div>

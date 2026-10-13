@@ -307,22 +307,23 @@ export function TranscriptReviewClient({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             href={`/w/${workspaceSlug}/library`}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            aria-label="Back to library"
+            className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-sm font-semibold">Review Transcript</h1>
-            <p className="text-xs text-zinc-500">
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold">Review transcript</h1>
+            <p className="truncate text-xs text-zinc-500">
               {videoTitle}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Trim indicators */}
           {(startMs !== null || endMs !== null) && (
             <div className="flex items-center gap-2 rounded-md bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">
@@ -340,7 +341,7 @@ export function TranscriptReviewClient({
               </button>
             </div>
           )}
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs tabular-nums text-zinc-400">
             {visibleBlocks.length} blocks
           </span>
           <button
@@ -353,7 +354,7 @@ export function TranscriptReviewClient({
             ) : (
               <Sparkles className="h-3 w-3" />
             )}
-            Save Transcript & Start Project
+            Save transcript and start project
           </button>
         </div>
       </div>

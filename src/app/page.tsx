@@ -4,18 +4,18 @@ export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4 sm:px-8">
+      <nav className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
         <span className="text-lg font-bold">ContentFlow</span>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/privacy" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+        <div className="flex items-center gap-3 text-sm sm:gap-4">
+          <Link href="/privacy" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100">
             Privacy
           </Link>
-          <Link href="/terms" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+          <Link href="/terms" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100">
             Terms
           </Link>
           <Link
             href="/signin"
-            className="rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="whitespace-nowrap rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             Sign in
           </Link>
@@ -33,9 +33,9 @@ export default function LandingPage() {
         </p>
         <Link
           href="/signin"
-          className="mt-2 rounded-lg bg-zinc-900 px-8 py-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="mt-2 whitespace-nowrap rounded-lg bg-zinc-900 px-8 py-3 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
-          Get Started Free
+          Get started free
         </Link>
       </section>
 

@@ -64,7 +64,7 @@ export function CopyHtmlButton({
         ) : (
           <ClipboardCopy className="h-4 w-4" />
         )}
-        {copied === "formatted" ? "Copied — ready to paste" : "Copy for Squarespace"}
+        {copied === "formatted" ? "Copied, ready to paste" : "Copy for Squarespace"}
       </button>
 
       <button

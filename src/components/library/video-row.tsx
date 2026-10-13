@@ -91,10 +91,10 @@ export function VideoRow({
 
   return (
     <tr className="border-b border-zinc-100 dark:border-zinc-800">
-      <td className="px-4 py-4 pr-4">
+      <td className="min-w-56 px-4 py-4 pr-4">
         <button
           onClick={handleClick}
-          className="flex items-center gap-3 text-left hover:opacity-80"
+          className="flex items-center gap-3 whitespace-normal text-left hover:opacity-80"
         >
           {video.thumbnailUrl && (
             <img
@@ -124,7 +124,7 @@ export function VideoRow({
         </button>
       </td>
       <td className="px-4 py-4 pr-4 text-zinc-500">{channelTitle}</td>
-      <td className="px-4 py-4 pr-4 text-zinc-500">
+      <td className="whitespace-nowrap px-4 py-4 pr-4 text-zinc-500">
         {isUpcoming && scheduledFor
           ? scheduledFor
           : video.publishedAt
@@ -132,7 +132,7 @@ export function VideoRow({
             : "—"}
       </td>
       <td className="px-4 py-4 pr-4">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pipelineTone}`}>
+        <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${pipelineTone}`}>
           {pipelineLabel}
         </span>
       </td>
@@ -140,12 +140,12 @@ export function VideoRow({
         {project ? (
           <Link
             href={`/w/${workspaceSlug}/projects/${project.id}`}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${projectTone}`}
+            className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${projectTone}`}
           >
             {project.status.replace("_", " ")}
           </Link>
         ) : (
-          <span className="text-xs text-zinc-400">Not started</span>
+          <span className="whitespace-nowrap text-xs text-zinc-400">Not started</span>
         )}
       </td>
       <td className="px-4 py-4">
