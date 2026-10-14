@@ -523,7 +523,7 @@ export function LibraryDashboard({
                         <button
                           type="button"
                           onClick={() => setFilter(item.filter)}
-                          className="mt-3 inline-flex max-w-full text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                          className="mt-3 inline-block max-w-full text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
                         >
                           {item.actionLabel}
                         </button>

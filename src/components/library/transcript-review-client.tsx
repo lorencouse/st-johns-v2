@@ -354,7 +354,7 @@ export function TranscriptReviewClient({
             ) : (
               <Sparkles className="h-3 w-3" />
             )}
-            Save transcript and start project
+            <span className="truncate">Save transcript and start project</span>
           </button>
         </div>
       </div>
@@ -426,7 +426,7 @@ export function TranscriptReviewClient({
               className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800"
             >
               <Undo2 className="h-3 w-3" />
-              Undo
+              <span className="truncate">Undo</span>
             </button>
           </div>
           <div

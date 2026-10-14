@@ -64,7 +64,9 @@ export function CopyHtmlButton({
         ) : (
           <ClipboardCopy className="h-4 w-4" />
         )}
-        {copied === "formatted" ? "Copied, ready to paste" : "Copy for Squarespace"}
+        <span className="truncate">
+          {copied === "formatted" ? "Copied, ready to paste" : "Copy for Squarespace"}
+        </span>
       </button>
 
       <button
@@ -79,7 +81,9 @@ export function CopyHtmlButton({
         ) : (
           <Code2 className="h-3.5 w-3.5" />
         )}
-        {copied === "source" ? "HTML copied" : "Copy raw HTML (Code Block)"}
+        <span className="truncate">
+          {copied === "source" ? "HTML copied" : "Copy raw HTML (Code Block)"}
+        </span>
       </button>
 
       {copied === "formatted" && (

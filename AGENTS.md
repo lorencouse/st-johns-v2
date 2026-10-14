@@ -61,7 +61,7 @@ back on, so:
 
 ## UI formatting rules
 
-- Buttons, tabs, chips and pills are one line of text, never wrapped: shorten the label or use an icon, ellipsis only as a last resort. `<button>` gets this from the base layer in `src/app/globals.css`; links and pills styled as buttons need `whitespace-nowrap` (`tests/ui-formatting.test.ts` checks).
+- Buttons, tabs, chips and pills are one line of text, never wrapped: shorten the label or use an icon, ellipsis only as a last resort. `<button>` gets this from the base layer in `src/app/globals.css`; links and pills styled as buttons need `whitespace-nowrap`.
 - No horizontal page scroll at 320-430px widths; long words, URLs and numbers wrap or truncate inside their container, and wide tables scroll inside their own box.
 - Tap targets are at least 44x44px on touch layouts.
 - Text inputs use at least 16px font on mobile, so iOS does not zoom on focus.
@@ -88,10 +88,3 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
-
-## Maintaining this file
-
-Keep this file for knowledge useful to almost every future agent session in this project.
-Do not repeat what the codebase already shows; point to the authoritative file or command instead.
-Prefer rewriting or pruning existing entries over appending new ones.
-When updating this file, preserve this bar for all agents and keep entries concise.
