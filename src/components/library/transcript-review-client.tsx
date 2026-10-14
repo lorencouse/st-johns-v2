@@ -4,10 +4,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowUpToLine,
-  ArrowDownToLine,
   X,
-  Plus,
   Undo2,
   Scissors,
   Sparkles,
@@ -18,6 +15,7 @@ import { formatTimestampMs } from "@/lib/format";
 import { flagContent } from "@/lib/content-flags";
 import { looksSung } from "@/lib/repetition-flags";
 import { RunStatus } from "@/components/studio/run-status";
+import { BlockControls } from "@/components/library/block-controls";
 
 interface Segment {
   seq: number;
@@ -307,22 +305,23 @@ export function TranscriptReviewClient({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             href={`/w/${workspaceSlug}/library`}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            aria-label="Back to library"
+            className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div>
-            <h1 className="text-sm font-semibold">Review Transcript</h1>
-            <p className="text-xs text-zinc-500">
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold">Review transcript</h1>
+            <p className="truncate text-xs text-zinc-500">
               {videoTitle}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Trim indicators */}
           {(startMs !== null || endMs !== null) && (
             <div className="flex items-center gap-2 rounded-md bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800">
@@ -340,7 +339,7 @@ export function TranscriptReviewClient({
               </button>
             </div>
           )}
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs tabular-nums text-zinc-400">
             {visibleBlocks.length} blocks
           </span>
           <button
@@ -353,7 +352,7 @@ export function TranscriptReviewClient({
             ) : (
               <Sparkles className="h-3 w-3" />
             )}
-            Save Transcript & Start Project
+            <span className="truncate">Save transcript and start project</span>
           </button>
         </div>
       </div>
@@ -425,7 +424,7 @@ export function TranscriptReviewClient({
               className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800"
             >
               <Undo2 className="h-3 w-3" />
-              Undo
+              <span className="truncate">Undo</span>
             </button>
           </div>
           <div
@@ -443,46 +442,15 @@ export function TranscriptReviewClient({
                 <div
                   key={block.id}
                   data-block-id={block.id}
-                  className="flex gap-1.5"
+                  className="flex gap-1.5 pointer-coarse:flex-col"
                 >
-                  {/* Controls column */}
-                  <div className="flex flex-col items-center justify-between pt-0.5 pb-0.5 shrink-0 w-7">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[9px] font-mono text-zinc-400 whitespace-nowrap">
-                        {formatTimestampMs(block.startMs)}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(block.id)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
-                        title="Delete block"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <button
-                        onClick={() => handleMarkStart(block.startMs)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-950/30"
-                        title="Mark as start"
-                      >
-                        <ArrowUpToLine className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleMarkEnd(block.endMs)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/30"
-                        title="Mark as end"
-                      >
-                        <ArrowDownToLine className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => handleInsertBelow(block.id)}
-                      className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-                      title="Add block below"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <BlockControls
+                    startMs={block.startMs}
+                    onDelete={() => handleDelete(block.id)}
+                    onMarkStart={() => handleMarkStart(block.startMs)}
+                    onMarkEnd={() => handleMarkEnd(block.endMs)}
+                    onInsertBelow={() => handleInsertBelow(block.id)}
+                  />
 
                   {/* Text area */}
                   <div className="flex-1 min-w-0">

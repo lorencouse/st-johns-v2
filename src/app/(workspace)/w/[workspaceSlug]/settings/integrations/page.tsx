@@ -87,7 +87,7 @@ export default async function IntegrationsPage({
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                      <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                         {channel.syncStatus}
                       </span>
                       {channel.lastSyncedAt && (

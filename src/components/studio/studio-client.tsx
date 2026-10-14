@@ -199,9 +199,9 @@ export function StudioClient({
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col lg:h-full lg:flex-row">
       {/* Left rail - transcript */}
-      <div className="w-80 shrink-0 overflow-y-auto border-r border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="shrink-0 border-b border-zinc-200 p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0 dark:border-zinc-800">
         <h3 className="text-xs font-semibold uppercase text-zinc-400">
           Source Video
         </h3>
@@ -221,7 +221,7 @@ export function StudioClient({
           <h3 className="text-xs font-semibold uppercase text-zinc-400">
             Transcript
           </h3>
-          <div className="mt-2 max-h-[calc(100vh-500px)] overflow-y-auto">
+          <div className="mt-2 max-h-64 overflow-y-auto lg:max-h-[calc(100vh-500px)]">
             <TranscriptPanel segments={transcriptSegments} />
           </div>
         </div>
@@ -230,9 +230,9 @@ export function StudioClient({
       </div>
 
       {/* Center - editor */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="min-w-0 flex-1 p-4 sm:p-6 lg:overflow-y-auto">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             {draft ? (
               <input
                 value={title}
@@ -243,13 +243,13 @@ export function StudioClient({
                 }}
                 placeholder="Post title"
                 aria-label="Post title"
-                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-2xl font-bold outline-none read-only:cursor-default hover:border-zinc-200 focus:border-blue-500 dark:hover:border-zinc-700"
+                className="min-w-0 flex-1 basis-64 rounded-md border border-transparent bg-transparent px-2 py-1 text-2xl font-bold outline-none read-only:cursor-default hover:border-zinc-200 focus:border-blue-500 dark:hover:border-zinc-700"
               />
             ) : (
               <h1 className="text-2xl font-bold">{projectTitle}</h1>
             )}
-            <div className="flex shrink-0 items-center gap-2 pt-2">
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 pt-2">
+              <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                 {projectStatus.replace("_", " ")}
               </span>
               {saving && (
@@ -257,8 +257,8 @@ export function StudioClient({
               )}
               {!saving && saveFailed && (
                 <span className="text-xs font-medium text-red-600">
-                  Save failed — check your connection; edits retry on your next
-                  change
+                  Save failed. Check your connection; edits retry on your next
+                  change.
                 </span>
               )}
             </div>
@@ -378,7 +378,7 @@ export function StudioClient({
       </div>
 
       {/* Right panel - actions */}
-      <div className="w-72 shrink-0 overflow-y-auto border-l border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="shrink-0 border-t border-zinc-200 p-4 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l dark:border-zinc-800">
         <h3 className="text-xs font-semibold uppercase text-zinc-400">
           Details
         </h3>
@@ -407,7 +407,7 @@ export function StudioClient({
               disabled={reviewLoading}
               className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Request Review
+              Request review
             </button>
           )}
 
@@ -425,7 +425,7 @@ export function StudioClient({
                 disabled={reviewLoading}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
               >
-                Request Changes
+                Request changes
               </button>
             </>
           )}

@@ -84,7 +84,7 @@ export default async function ReviewPage({
                     Requested by {requestedByName || "Unknown"}
                   </p>
                 </div>
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                   {request.status}
                 </span>
               </Link>

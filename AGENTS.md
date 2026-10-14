@@ -59,6 +59,19 @@ back on, so:
 
 **Routing:** Workspace-scoped: `/w/:workspaceSlug/library|projects|review|settings`
 
+## UI formatting rules
+
+- Buttons, tabs, chips and pills are one line of text, never wrapped: shorten the label or use an icon, ellipsis only as a last resort. `<button>` gets this from the base layer in `src/app/globals.css`; links and pills styled as buttons need `whitespace-nowrap`.
+- No horizontal page scroll at 320-430px widths; long words, URLs and numbers wrap or truncate inside their container, and wide tables scroll inside their own box.
+- Tap targets are at least 44x44px on touch layouts.
+- Text inputs use at least 16px font on mobile, so iOS does not zoom on focus.
+- Headings use `text-wrap: balance`, body copy `text-wrap: pretty`.
+- Truncated text shows an ellipsis, never clips or overflows its box; single-line labels inside flex or grid get `min-w-0`.
+- Numbers that change or align (prices, counts, stats) use `tabular-nums`.
+- Body text line length stays at about 70 characters or less.
+- Labels and buttons are in sentence case; no em-dashes in UI copy.
+- Use the existing Tailwind spacing, radius and color scales; no one-off magic values.
+
 ## Package Manager
 
 Use `bun`, not npm or pnpm.

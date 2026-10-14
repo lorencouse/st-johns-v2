@@ -10,9 +10,9 @@ export default async function SettingsLayout({
   const { workspaceSlug } = await params;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:h-full md:flex-row">
       <SettingsNav workspaceSlug={workspaceSlug} />
-      <div className="flex-1 overflow-y-auto">{children}</div>
+      <div className="min-w-0 flex-1 md:overflow-y-auto">{children}</div>
     </div>
   );
 }

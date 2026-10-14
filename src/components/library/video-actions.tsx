@@ -75,7 +75,7 @@ export function VideoActions({
       {project && (
         <Link
           href={`/w/${workspaceSlug}/projects/${project.id}`}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          className="whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
         >
           Open project
         </Link>
@@ -94,7 +94,7 @@ export function VideoActions({
       {ingestStatus === "captions_available" && !project && (
         <Link
           href={`/w/${workspaceSlug}/library/${videoId}/review`}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          className="whitespace-nowrap rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
         >
           Review transcript
         </Link>

@@ -44,7 +44,7 @@ export default async function AppPage() {
 
           <Link
             href="/app/new-workspace"
-            className="inline-flex rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+            className="inline-flex whitespace-nowrap rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
           >
             Create workspace
           </Link>
@@ -66,7 +66,7 @@ export default async function AppPage() {
                     /w/{workspace.slug}
                   </p>
                 </div>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <span className="whitespace-nowrap rounded-full bg-blue-50 px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                   {role}
                 </span>
               </div>

@@ -27,6 +27,84 @@ body {
 }
 
 /*
+ * UI formatting rules (see AGENTS.md). These sit in the base layer so a
+ * component can still opt out with a utility, such as `whitespace-normal` on
+ * a button that is laid out as a multi-line card.
+ */
+@layer base {
+  /* A button label is one line. A squeezed label is clipped with an
+   * ellipsis rather than wrapping. `clip` rather than `hidden` keeps the
+   * button's text baseline, so inline text buttons stay aligned. */
+  button,
+  [role="button"],
+  [role="tab"],
+  input:is([type="button"], [type="submit"], [type="reset"]) {
+    white-space: nowrap;
+    overflow-x: clip;
+    text-overflow: ellipsis;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd,
+  blockquote,
+  figcaption {
+    text-wrap: pretty;
+  }
+
+  table,
+  time,
+  data,
+  output {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Touch layouts get 44px-tall tap targets. */
+  @media (pointer: coarse) {
+    button,
+    [role="button"],
+    [role="tab"],
+    select,
+    input:is([type="button"], [type="submit"], [type="reset"]) {
+      min-height: 44px;
+    }
+  }
+}
+
+/*
+ * iOS zooms the page when a field under 16px takes focus, so small text
+ * fields are bumped to 16px on narrow screens. This sits outside the layers
+ * so it beats the `text-xs`/`text-sm` utilities the fields are styled with.
+ */
+@media (width < 48rem) {
+  :is(
+      input:not(
+          [type="checkbox"],
+          [type="radio"],
+          [type="range"],
+          [type="color"],
+          [type="file"],
+          [type="button"],
+          [type="submit"],
+          [type="reset"]
+        ),
+      textarea,
+      select
+    ):not(.text-base, .text-lg, .text-xl, .text-2xl, .text-3xl) {
+    font-size: 16px;
+  }
+}
+
+/*
  * Section timestamps live on the heading node as attributes rather than in
  * its text, so an editor can retitle a section without disturbing the link
  * back into the video. The marker is drawn from the attribute, which keeps

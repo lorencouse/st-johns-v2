@@ -73,7 +73,7 @@ export default async function ProjectsPage({
                   <p className="font-medium">{project.title}</p>
                   <p className="text-sm text-zinc-500">{project.videoTitle}</p>
                 </div>
-                <span className="ml-4 shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
+                <span className="ml-4 shrink-0 whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                   {project.status}
                 </span>
               </Link>

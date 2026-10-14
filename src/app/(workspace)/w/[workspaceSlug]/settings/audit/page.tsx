@@ -37,7 +37,7 @@ export default async function AuditPage({
               key={event.id}
               className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
             >
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm">
                   <span className="font-medium">
                     {actorName || "System"}
@@ -50,7 +50,7 @@ export default async function AuditPage({
                     : "—"}
                 </p>
               </div>
-              <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
+              <span className="max-w-[50%] truncate rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs dark:bg-zinc-800">
                 {event.eventKey}
               </span>
             </div>
