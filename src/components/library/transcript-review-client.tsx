@@ -454,7 +454,7 @@ export function TranscriptReviewClient({
                       </span>
                       <button
                         onClick={() => handleDelete(block.id)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
                         title="Delete block"
                       >
                         <X className="h-3 w-3" />
@@ -463,14 +463,14 @@ export function TranscriptReviewClient({
                     <div className="flex flex-col items-center gap-0.5">
                       <button
                         onClick={() => handleMarkStart(block.startMs)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-950/30"
+                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-950/30"
                         title="Mark as start"
                       >
                         <ArrowUpToLine className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => handleMarkEnd(block.endMs)}
-                        className="rounded p-0.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/30"
+                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/30"
                         title="Mark as end"
                       >
                         <ArrowDownToLine className="h-3 w-3" />
@@ -478,7 +478,7 @@ export function TranscriptReviewClient({
                     </div>
                     <button
                       onClick={() => handleInsertBelow(block.id)}
-                      className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+                      className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
                       title="Add block below"
                     >
                       <Plus className="h-3 w-3" />
