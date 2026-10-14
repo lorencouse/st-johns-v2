@@ -4,10 +4,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowUpToLine,
-  ArrowDownToLine,
   X,
-  Plus,
   Undo2,
   Scissors,
   Sparkles,
@@ -18,6 +15,7 @@ import { formatTimestampMs } from "@/lib/format";
 import { flagContent } from "@/lib/content-flags";
 import { looksSung } from "@/lib/repetition-flags";
 import { RunStatus } from "@/components/studio/run-status";
+import { BlockControls } from "@/components/library/block-controls";
 
 interface Segment {
   seq: number;
@@ -444,46 +442,15 @@ export function TranscriptReviewClient({
                 <div
                   key={block.id}
                   data-block-id={block.id}
-                  className="flex gap-1.5"
+                  className="flex gap-1.5 pointer-coarse:flex-col"
                 >
-                  {/* Controls column */}
-                  <div className="flex flex-col items-center justify-between pt-0.5 pb-0.5 shrink-0 w-7">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[9px] font-mono text-zinc-400 whitespace-nowrap">
-                        {formatTimestampMs(block.startMs)}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(block.id)}
-                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
-                        title="Delete block"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <button
-                        onClick={() => handleMarkStart(block.startMs)}
-                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-950/30"
-                        title="Mark as start"
-                      >
-                        <ArrowUpToLine className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleMarkEnd(block.endMs)}
-                        className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/30"
-                        title="Mark as end"
-                      >
-                        <ArrowDownToLine className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => handleInsertBelow(block.id)}
-                      className="rounded p-0.5 text-zinc-400 pointer-coarse:-m-3.5 pointer-coarse:p-4 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
-                      title="Add block below"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
+                  <BlockControls
+                    startMs={block.startMs}
+                    onDelete={() => handleDelete(block.id)}
+                    onMarkStart={() => handleMarkStart(block.startMs)}
+                    onMarkEnd={() => handleMarkEnd(block.endMs)}
+                    onInsertBelow={() => handleInsertBelow(block.id)}
+                  />
 
                   {/* Text area */}
                   <div className="flex-1 min-w-0">
