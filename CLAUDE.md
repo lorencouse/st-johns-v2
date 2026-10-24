@@ -63,6 +63,8 @@ back on, so:
 
 Use `bun`, not npm or pnpm.
 
+Bun runs the app; Node only runs `next build` in the Dockerfile builder stage. Node is pinned to one exact LTS version in the Dockerfile `node:` tag, `.nvmrc` and `package.json` `engines`; change all three together.
+
 ## Environment Variables
 
 ```

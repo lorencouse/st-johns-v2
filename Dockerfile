@@ -7,7 +7,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
 # Build the app under Node: Bun segfaults running `next build` for Next 16.3
-FROM node:22-slim AS builder
+FROM node:24.22.1-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
