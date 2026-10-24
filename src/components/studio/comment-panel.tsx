@@ -52,6 +52,7 @@ export function CommentPanel({
   }, [workspaceId, projectId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set only after the fetch resolves
     void fetchComments();
   }, [fetchComments]);
 

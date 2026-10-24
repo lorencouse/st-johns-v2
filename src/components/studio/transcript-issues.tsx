@@ -62,6 +62,7 @@ export function TranscriptIssues({
   }, [workspaceId, videoId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set only after the fetch resolves
     void fetchIssues();
   }, [fetchIssues]);
 

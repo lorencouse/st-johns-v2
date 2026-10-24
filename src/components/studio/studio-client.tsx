@@ -73,6 +73,7 @@ export function StudioClient({
   const [summary, setSummary] = useState(draft?.summary ?? "");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset local fields when the draft changes
     setTitle(draft?.title ?? projectTitle);
     setIntro(draft?.intro ?? "");
     setSummary(draft?.summary ?? "");
