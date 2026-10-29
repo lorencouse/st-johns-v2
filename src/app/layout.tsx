@@ -8,9 +8,12 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+// Only signed-in app screens use the mono face (timestamps, IDs, code), so it
+// is not preloaded on every page; it loads when a page first uses it.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -39,10 +42,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    // The font variables sit on <html> because Tailwind resolves the default
+    // font family there; set on <body>, the page falls back to the system face.
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
