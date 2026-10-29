@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, ClipboardCopy } from "lucide-react";
 
-/** The studio's "Copy for Squarespace" button, copying the demonstration post's passage. */
+/** The studio's "Copy for Squarespace" button, copying the demonstration post. */
 export function CopyPostButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 

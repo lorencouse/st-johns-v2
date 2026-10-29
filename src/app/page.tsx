@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Literata } from "next/font/google";
 import { Play } from "lucide-react";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 import { channel, library, post, service } from "@/app/landing-service";
 import { PassageStates } from "@/components/landing/passage-states";
 import { QuestionIndex, type Question } from "@/components/landing/question-index";
 import { CopyPostButton } from "@/components/landing/copy-post-button";
-
-// The public pages are set in Literata; the app keeps its own face, and the
-// product fragments on this page use it (`font-sans`) so they look like the app.
-const literata = Literata({ subsets: ["latin"], display: "swap" });
+import { MomentLink } from "@/components/landing/moment-link";
+import { literata } from "@/components/site/literata";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 const HEADLINE = "Sunday's sermon, Monday's blog post";
 const SUMMARY =
@@ -46,9 +45,6 @@ const GRID = "lg:grid lg:grid-cols-12 lg:gap-x-8";
 const COLUMN = "lg:col-span-6 lg:col-start-4";
 // Wider pieces break out of the column by one grid column on each side.
 const WIDE = "lg:col-span-8 lg:col-start-3";
-
-const NAV_LINK =
-  "inline-flex min-h-11 items-center whitespace-nowrap px-2 transition-colors duration-150";
 
 const passageSection = post.sections[post.passageSection];
 
@@ -114,24 +110,7 @@ export default function LandingPage() {
   return (
     <div className={`${literata.className} flex min-h-svh flex-col bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50`}>
       {/* The one dark band: the service as recorded and the post it becomes. */}
-      <header className="bg-black text-white dark:bg-zinc-900">
-        <nav className={`${FRAME} flex items-center justify-between gap-2 py-2`} aria-label="Main">
-          <Link href="/" className={`${NAV_LINK} -ml-2 text-lg font-semibold`}>
-            ContentFlow
-          </Link>
-          <div className="flex items-center gap-1 text-base">
-            <Link href="/privacy" className={`${NAV_LINK} text-zinc-300 hover:text-white`}>
-              Privacy
-            </Link>
-            <Link href="/terms" className={`${NAV_LINK} text-zinc-300 hover:text-white max-sm:hidden`}>
-              Terms
-            </Link>
-            <Link href="/signin" className={`${NAV_LINK} -mr-2 font-medium underline-offset-4 hover:underline`}>
-              Sign in
-            </Link>
-          </div>
-        </nav>
-
+      <SiteHeader>
         <div className={`${FRAME} ${GRID} pt-10 pb-12 sm:pt-20 lg:pt-16 lg:pb-20`}>
           <div className={COLUMN}>
             <h1 className="text-4xl leading-tight font-medium tracking-tight sm:text-5xl lg:text-6xl">
@@ -170,7 +149,7 @@ export default function LandingPage() {
                   sizes="(min-width: 1024px) 280px, 50vw"
                   className="object-cover object-left"
                 />
-                <span className="absolute top-0 right-0 flex h-11 w-11 items-center justify-center bg-black text-white transition-colors duration-150 group-hover:bg-red-600">
+                <span className="absolute top-0 right-0 flex h-11 w-11 items-center justify-center bg-black text-white transition-colors duration-150 group-hover:bg-zinc-700">
                   <Play className="h-5 w-5" aria-hidden />
                 </span>
               </a>
@@ -190,11 +169,13 @@ export default function LandingPage() {
                 <p className="text-base leading-snug font-semibold sm:text-xl">{post.title}</p>
                 <ul className="mt-3 space-y-2 text-sm leading-snug sm:mt-5 sm:space-y-3 sm:text-base">
                   {post.sections.slice(4, 9).map((s, i) => (
-                    <li key={s.heading} className={`${i < 2 ? "flex" : "hidden sm:flex"} gap-2`}>
-                      <time className="w-10 shrink-0 font-medium text-blue-600 tabular-nums sm:w-12 dark:text-blue-400">
-                        {s.time}
-                      </time>
-                      <span className="min-w-0">{s.heading}</span>
+                    <li key={s.heading} className={i < 2 ? undefined : "max-sm:hidden"}>
+                      <MomentLink time={s.time} className="flex gap-2 underline-offset-4 hover:underline">
+                        <time className="w-10 shrink-0 font-medium text-blue-600 tabular-nums sm:w-12 dark:text-blue-400">
+                          {s.time}
+                        </time>
+                        <span className="min-w-0">{s.heading}</span>
+                      </MomentLink>
                     </li>
                   ))}
                 </ul>
@@ -208,7 +189,7 @@ export default function LandingPage() {
             </figure>
           </div>
         </div>
-      </header>
+      </SiteHeader>
 
       <main className="flex-1">
         <section aria-labelledby="states" className={`${FRAME} pt-24 lg:pt-36`}>
@@ -279,13 +260,15 @@ export default function LandingPage() {
               <div data-ui className="mt-4 bg-zinc-100 p-5 font-sans dark:bg-zinc-900">
                 <p className="text-sm text-zinc-600 dark:text-zinc-400">{service.title}</p>
                 <p className="mt-1 text-xl font-semibold">{post.title}</p>
-                <ul className="mt-4 space-y-2.5 text-base">
+                <ul className="mt-2 text-base">
                   {post.sections.map((s) => (
-                    <li key={s.heading} className="flex gap-3">
-                      <time className="w-12 shrink-0 text-sm leading-6 font-medium text-blue-600 tabular-nums dark:text-blue-400">
-                        {s.time}
-                      </time>
-                      <span className="min-w-0 font-medium">{s.heading}</span>
+                    <li key={s.heading}>
+                      <MomentLink time={s.time} className="flex min-h-11 gap-3 py-2.5 underline-offset-4 hover:underline">
+                        <time className="w-12 shrink-0 text-sm leading-6 font-medium text-blue-600 tabular-nums dark:text-blue-400">
+                          {s.time}
+                        </time>
+                        <span className="min-w-0 font-medium">{s.heading}</span>
+                      </MomentLink>
                     </li>
                   ))}
                 </ul>
@@ -300,7 +283,9 @@ export default function LandingPage() {
                   block.
                 </p>
                 <div className="mt-4">
-                  <CopyPostButton text={`${passageSection.heading}\n\n${post.edited}`} />
+                  <CopyPostButton
+                    text={[post.title, TRANSCRIPT_DISCLAIMER, passageSection.heading, post.edited].join("\n\n")}
+                  />
                 </div>
               </div>
               <article data-ui className="mt-6 bg-zinc-100 p-5 font-sans sm:p-8 lg:col-span-8 lg:col-start-1 dark:bg-zinc-900">
@@ -308,9 +293,11 @@ export default function LandingPage() {
                 <p className="mt-4 bg-white p-4 text-sm leading-relaxed text-zinc-700 dark:bg-zinc-950 dark:text-zinc-300">
                   {TRANSCRIPT_DISCLAIMER}
                 </p>
-                <p className="mt-6 text-lg font-semibold">
-                  <time className="mr-2 text-sm font-medium text-blue-600 dark:text-blue-400">{passageSection.time}</time>
-                  {passageSection.heading}
+                <p className="mt-4 text-lg font-semibold">
+                  <MomentLink time={passageSection.time} className="block py-2 underline-offset-4 hover:underline">
+                    <time className="mr-2 text-sm font-medium text-blue-600 dark:text-blue-400">{passageSection.time}</time>
+                    {passageSection.heading}
+                  </MomentLink>
                 </p>
                 <p className="mt-2 text-base leading-relaxed">{post.edited}</p>
               </article>
@@ -323,23 +310,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className={`${FRAME} ${GRID} pt-[20svh] pb-6 text-sm`}>
-        <div className={`${WIDE} flex flex-col gap-2 lg:flex-row lg:items-baseline lg:justify-between`}>
-          <p className="text-zinc-600 dark:text-zinc-400">Sermons into blog posts</p>
-          <div className="-mx-2 flex flex-wrap">
-            <Link href="/privacy" className={NAV_LINK}>
-              Privacy
-            </Link>
-            <Link href="/terms" className={NAV_LINK}>
-              Terms
-            </Link>
-            <a href="mailto:support@dotdasher.com" className={NAV_LINK}>
-              Contact
-            </a>
-          </div>
-          <p className="text-zinc-600 tabular-nums dark:text-zinc-400">&copy; {new Date().getFullYear()} ContentFlow</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,32 +1,33 @@
 import Link from "next/link";
 
-const textLink =
-  "hidden min-h-11 items-center whitespace-nowrap text-zinc-600 hover:text-zinc-900 sm:inline-flex dark:text-zinc-400 dark:hover:text-zinc-100";
+const navLink =
+  "inline-flex min-h-11 items-center whitespace-nowrap px-2 transition-colors duration-150";
 
-/** The public site's top bar, shared by the landing and legal pages. */
-export function SiteHeader() {
+/**
+ * The public site's one black band, shared by the landing, legal and sign-in
+ * pages: the wordmark and the nav, then whatever the page sets inside the band
+ * (the landing's hero).
+ */
+export function SiteHeader({ children }: { children?: React.ReactNode }) {
   return (
-    <header className="flex items-center justify-between gap-3 px-4 py-2 sm:px-8 sm:py-4">
-      <Link
-        href="/"
-        className="inline-flex min-h-11 items-center whitespace-nowrap text-lg font-bold"
-      >
-        ContentFlow
-      </Link>
-      <nav className="flex items-center gap-3 text-sm sm:gap-6">
-        <Link href="/privacy" className={textLink}>
-          Privacy
+    <header className="bg-black text-white dark:bg-zinc-900">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-2 sm:px-8" aria-label="Main">
+        <Link href="/" className={`${navLink} -ml-2 text-lg font-semibold`}>
+          ContentFlow
         </Link>
-        <Link href="/terms" className={textLink}>
-          Terms
-        </Link>
-        <Link
-          href="/signin"
-          className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-zinc-900 px-4 font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          Sign in
-        </Link>
+        <div className="flex items-center gap-1 text-base">
+          <Link href="/privacy" className={`${navLink} text-zinc-300 hover:text-white`}>
+            Privacy
+          </Link>
+          <Link href="/terms" className={`${navLink} text-zinc-300 hover:text-white max-sm:hidden`}>
+            Terms
+          </Link>
+          <Link href="/signin" className={`${navLink} -mr-2 font-medium underline-offset-4 hover:underline`}>
+            Sign in
+          </Link>
+        </div>
       </nav>
+      {children}
     </header>
   );
 }

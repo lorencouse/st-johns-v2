@@ -1,3 +1,4 @@
+import { literata } from "./literata";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
 
@@ -18,7 +19,7 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className={`${literata.className} flex min-h-svh flex-col`}>
       <SiteHeader />
       <main className="flex-1 px-4 pt-8 pb-16 sm:px-8 sm:pt-16">
         <article className="mx-auto max-w-xl">

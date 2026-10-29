@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import type { CaptionRun } from "@/app/landing-service";
+import { MomentLink } from "@/components/landing/moment-link";
 
 interface PassageStatesProps {
   captionTime: string;
@@ -25,7 +26,9 @@ export function PassageStates({ captionTime, headingTime, heading, caption, edit
     <ol className="space-y-12 lg:space-y-14">
       <State word="As captioned">
         <div data-ui className="flex gap-4 bg-zinc-100 p-5 font-sans dark:bg-zinc-900">
-          <time className="shrink-0 pt-0.5 text-sm font-medium text-blue-600 tabular-nums dark:text-blue-400">{captionTime}</time>
+          <MomentLink time={captionTime} className="-m-3 shrink-0 p-3 pt-3.5 text-sm font-medium text-blue-600 tabular-nums underline-offset-4 hover:underline dark:text-blue-400">
+            <time>{captionTime}</time>
+          </MomentLink>
           <CaptionText runs={caption} />
         </div>
       </State>
@@ -34,8 +37,10 @@ export function PassageStates({ captionTime, headingTime, heading, caption, edit
         <div data-ui className="bg-zinc-100 p-5 font-sans dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="min-w-0 text-base font-semibold">
-              <time className="mr-2 text-sm font-medium text-blue-600 tabular-nums dark:text-blue-400">{headingTime}</time>
-              {heading}
+              <MomentLink time={headingTime} className="block py-2.5 underline-offset-4 hover:underline">
+                <time className="mr-2 text-sm font-medium text-blue-600 tabular-nums dark:text-blue-400">{headingTime}</time>
+                {heading}
+              </MomentLink>
             </p>
             <div role="group" aria-label="Show the passage as" className="flex rounded-md bg-zinc-200 p-0.5 text-sm dark:bg-zinc-800">
               {(["caption", "edited"] as const).map((v) => (

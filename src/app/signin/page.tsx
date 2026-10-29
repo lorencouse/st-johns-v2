@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { signIn } from "@/server/auth";
 import { sanitizeLocalRedirectPath } from "@/lib/security";
+import { literata } from "@/components/site/literata";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 export default async function SignInPage({
   searchParams,
@@ -20,16 +23,9 @@ export default async function SignInPage({
   const redirectTo = sanitizeLocalRedirectPath(callbackUrl, "/app");
 
   return (
-    <div className="flex min-h-svh flex-col px-4 sm:px-8">
-      <header className="py-2 sm:py-4">
-        <Link
-          href="/"
-          className="inline-flex min-h-11 items-center whitespace-nowrap text-lg font-bold"
-        >
-          ContentFlow
-        </Link>
-      </header>
-      <main className="flex flex-1 items-center justify-center pt-8 pb-24">
+    <div className={`${literata.className} flex min-h-svh flex-col`}>
+      <SiteHeader />
+      <main className="flex flex-1 items-center justify-center px-4 pt-16 sm:px-8">
         <div className="w-full max-w-sm space-y-8 text-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
@@ -81,6 +77,7 @@ export default async function SignInPage({
           </div>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

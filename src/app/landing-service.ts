@@ -27,6 +27,10 @@ export const service = {
   thumbnail: thumbnail("i079i5rivQU"),
 };
 
+/** `service.url` at `time` ("m:ss" or "h:mm:ss"), for a heading's link back into the video. */
+export const momentUrl = (time: string) =>
+  `${service.url}&t=${time.split(":").reduce((seconds, part) => seconds * 60 + Number(part), 0)}s`;
+
 /** The newest services in the channel's library, newest first. */
 export const library = [
   service,

@@ -41,7 +41,7 @@ export function QuestionIndex({ heading, questions }: { heading: string; questio
                   <span
                     aria-hidden
                     className={`mt-2.5 h-2 w-2 shrink-0 rounded-full transition-colors duration-150 ${
-                      isOpen ? "bg-red-600" : "bg-zinc-400 dark:bg-zinc-600"
+                      isOpen ? "bg-zinc-950 dark:bg-zinc-50" : "bg-zinc-400 dark:bg-zinc-600"
                     }`}
                   />
                   <span className="min-w-0">{q.question}</span>
