@@ -1,26 +1,11 @@
 import Link from "next/link";
+import { SiteFooter } from "@/components/site/site-footer";
+import { SiteHeader } from "@/components/site/site-header";
 
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Nav */}
-      <nav className="flex items-center justify-between gap-3 px-4 py-4 sm:px-8">
-        <span className="text-lg font-bold">ContentFlow</span>
-        <div className="flex items-center gap-3 text-sm sm:gap-4">
-          <Link href="/privacy" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100">
-            Terms
-          </Link>
-          <Link
-            href="/signin"
-            className="whitespace-nowrap rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            Sign in
-          </Link>
-        </div>
-      </nav>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
@@ -67,14 +52,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-200 px-6 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-500 sm:px-8">
-        <div className="flex items-center justify-center gap-4">
-          <span>&copy; {new Date().getFullYear()} ContentFlow</span>
-          <Link href="/privacy" className="hover:text-zinc-900 dark:hover:text-zinc-100">Privacy Policy</Link>
-          <Link href="/terms" className="hover:text-zinc-900 dark:hover:text-zinc-100">Terms of Service</Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
