@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# A changed .env changes .env.sops with it, in this commit.
+#
+# The failure this prevents is quiet: you rotate a key in .env, the app picks
+# it up locally, and .env.sops still holds the old value until the next machine
+# pulls a stale secret.
+#
+# Installed by `ops/env pull`, or by hand: git config core.hooksPath ops/hooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# A rebase or a merge replays old commits; folding today's secrets into one of
+# them rewrites history nobody asked to rewrite.
+GITDIR=$(git rev-parse --git-dir)
+if [ -d "$GITDIR/rebase-merge" ] || [ -d "$GITDIR/rebase-apply" ] || [ -f "$GITDIR/MERGE_HEAD" ]; then
+  exit 0
+fi
+
+# Only plaintext files that already have a committed .sops twin; a brand-new
+# env file is encrypted on purpose with `ops/env push <file>`, not by accident.
+FILES=()
+for s in .env.sops .env.*.sops; do
+  [ -f "$s" ] && [ -f "${s%.sops}" ] && FILES+=("${s%.sops}")
+done
+[ ${#FILES[@]} -gt 0 ] || exit 0
+
+# Without sops and the key the commit still goes through, loudly: blocking a
+# checkout that never had the key is worse than the drift.
+warn_and_pass() {
+  cat >&2 <<MSG
+
+  pre-commit: cannot check env files against their .sops copies: $1
+  Committing anyway. Run \`ops/env push\` on a machine with the key.
+
+MSG
+  exit 0
+}
+command -v sops >/dev/null 2>&1 || warn_and_pass "sops is not installed"
+KEYFILE=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}
+[ -r "$KEYFILE" ] || warn_and_pass "no age key at $KEYFILE"
+
+for f in "${FILES[@]}"; do
+  # Values are compared but never printed.
+  if diff -q <(grep -v '^$' "$f") \
+             <(sops --decrypt --input-type dotenv --output-type dotenv "$f.sops" | grep -v '^$') >/dev/null 2>&1; then
+    continue
+  fi
+  echo "pre-commit: $f changed, re-encrypting into $f.sops"
+  # push refuses if the result does not decrypt back, and set -e turns that
+  # into an aborted commit: an unreadable .sops is worse than no commit.
+  ops/env push "$f" >/dev/null
+  git add "$f.sops"
+done

@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# The repo's secrets, encrypted, so a second machine is a clone and one key
+# rather than a copy-paste of every value. Copied from Kouzr (house-finder).
+#
+#   ops/env pull     .env.sops  ->  .env     (after a clone, or a colleague's push)
+#   ops/env push     .env       ->  .env.sops   (after adding or rotating a value)
+#   ops/env diff     what push would change, keys only, never values
+#   ops/env edit     open .env.sops decrypted in $EDITOR, re-encrypt on save
+#   ops/env rekey    re-encrypt to whoever .sops.yaml now lists
+#
+# Every command works on each committed .env*.sops (.env.sops, .env.local.sops,
+# ...) and its plaintext twin, or on just the one you name: `ops/env push .env.local`.
+#
+# .env stays gitignored and is the file everything actually reads. .env.sops is
+# the committed copy: SOPS encrypts the VALUES and leaves the keys in the clear,
+# so a diff shows that OPENAI_API_KEY changed without showing what it changed to.
+#
+# Keeping the two level is not something to remember: ops/hooks/pre-commit
+# re-encrypts a changed .env and stages .env.sops in the same commit. `pull`
+# points core.hooksPath at ops/hooks, because that config is local to a
+# checkout and a clone does not carry it.
+#
+# The key is an age identity at ~/.config/sops/age/keys.txt. On a Mac that is a
+# symlink into ~/Library/Application Support/sops/age/, which is where SOPS
+# actually looks on macOS — the XDG path alone silently fails to find it.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+KEYFILE=${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}
+FMT=(--input-type dotenv --output-type dotenv)
+
+need_key() {
+  [ -r "$KEYFILE" ] && return 0
+  cat >&2 <<MSG
+No age key at $KEYFILE.
+
+This machine cannot read .env.sops until it has one. It is the same key as
+Kouzr's, in Apple Passwords under "Kouzr repo secrets (age)". Put it back with:
+
+  mkdir -p ~/Library/Application\\ Support/sops/age
+  pbpaste > ~/Library/Application\\ Support/sops/age/keys.txt
+  chmod 600 ~/Library/Application\\ Support/sops/age/keys.txt
+  mkdir -p ~/.config/sops/age && ln -sf ~/Library/Application\\ Support/sops/age/keys.txt ~/.config/sops/age/keys.txt
+MSG
+  exit 1
+}
+
+# Blank lines are noise; everything else counts. Values are compared, never printed.
+same() {
+  diff -q <(grep -v '^$' "$1") <(sops --decrypt "${FMT[@]}" "$1.sops" | grep -v '^$') >/dev/null 2>&1
+}
+
+# The plaintext names to act on: the one given, or the twin of every committed .sops.
+targets() {
+  local f
+  if [ -n "${1:-}" ]; then
+    echo "${1%.sops}"
+  elif [ "$CMD" = push ]; then
+    for f in .env .env.*; do
+      case "$f" in .env.example|*.sops|*.sops.tmp|.env.before-pull.*) continue ;; esac
+      [ -f "$f" ] && echo "$f"
+    done
+  else
+    for f in .env.sops .env.*.sops; do [ -f "$f" ] && echo "${f%.sops}"; done
+  fi
+  return 0
+}
+
+CMD=${1:-}
+FILES=()
+while IFS= read -r f; do FILES+=("$f"); done < <(targets "${2:-}")
+
+case "$CMD" in
+  pull|push|diff|edit|rekey) need_key; [ ${#FILES[@]} -gt 0 ] || { echo "nothing to $CMD" >&2; exit 1; } ;;
+esac
+
+case "$CMD" in
+  pull)
+    for f in "${FILES[@]}"; do
+      # Never straight over the top: an un-pushed local value is somebody's
+      # afternoon, and this command's whole job makes it easy to lose.
+      if [ -f "$f" ] && ! same "$f"; then
+        cp "$f" "$f.before-pull.$(date +%Y%m%d%H%M%S)"
+        echo "local $f differed — kept a copy as $f.before-pull.*" >&2
+      fi
+      (umask 077; sops --decrypt "${FMT[@]}" "$f.sops" > "$f")
+      echo "pulled $(grep -c . "$f") lines into $f"
+    done
+    # First command a new machine runs, so it is where the commit hook gets
+    # turned on. git config returns 1 for an unset key, hence the || true.
+    if [ "$(git config core.hooksPath || true)" != "ops/hooks" ]; then
+      git config core.hooksPath ops/hooks
+      echo "set core.hooksPath=ops/hooks, so a commit re-encrypts a changed .env"
+    fi
+    ;;
+  push)
+    for f in "${FILES[@]}"; do
+      [ -f "$f" ] || { echo "no $f to encrypt" >&2; exit 1; }
+      if [ -f "$f.sops" ]; then
+        # EDIT the existing file rather than encrypting a fresh one: a fresh
+        # encryption mints a new data key and every line's ciphertext changes,
+        # so a one-value rotation would show as every line changed. sops edit
+        # reuses the ciphertext of anything unchanged. The "editor" just
+        # overwrites sops's temp copy with the plaintext.
+        ED=$(mktemp)
+        printf '#!/bin/sh\ncat "$ENV_SRC" > "$1"\n' > "$ED"
+        chmod +x "$ED"
+        ENV_SRC="$PWD/$f" EDITOR="$ED" sops edit "${FMT[@]}" "$f.sops" || [ $? -eq 200 ]  # 200: no change
+        rm -f "$ED"
+      else
+        cp "$f" "$f.sops.tmp"
+        sops --encrypt --in-place "${FMT[@]}" "$f.sops.tmp"
+        mv "$f.sops.tmp" "$f.sops"
+      fi
+      # Encrypting and not checking is how a typo becomes an unreadable file.
+      same "$f" || { echo "REFUSING: $f.sops does not decrypt back to $f" >&2; exit 1; }
+      echo "encrypted $(grep -c . "$f") lines into $f.sops, and it decrypts back clean"
+    done
+    echo "now: git add .env*.sops && git commit"
+    ;;
+  diff)
+    for f in "${FILES[@]}"; do
+      echo "== $f"
+      # Keys only. Printing values would put the whole point of this file into a
+      # terminal buffer.
+      diff <(sops --decrypt "${FMT[@]}" "$f.sops" | grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' | sort) \
+           <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$f" | sort) \
+        && echo "same set of keys; values may still differ (they are not printed)" || true
+    done
+    ;;
+  edit)
+    [ ${#FILES[@]} -eq 1 ] || { echo "edit one file at a time: ops/env edit .env" >&2; exit 1; }
+    sops edit "${FMT[@]}" "${FILES[0]}.sops"
+    echo "edited ${FILES[0]}.sops; run ops/env pull to update ${FILES[0]}"
+    ;;
+  rekey)
+    for f in "${FILES[@]}"; do sops updatekeys --yes "$f.sops"; done
+    echo "re-encrypted to the recipients in .sops.yaml"
+    ;;
+  *)
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac

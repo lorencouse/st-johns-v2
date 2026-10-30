@@ -11,7 +11,7 @@ Built with Next.js 16, Drizzle ORM on PostgreSQL, BullMQ on Redis, Auth.js v5
 
 ```bash
 bun install
-cp .env.example .env   # then fill in the values
+ops/env pull           # decrypts .env.sops into .env (needs sops and the age key)
 bun dev                # opens the SSH tunnel, then serves http://localhost:3000
 ```
 
@@ -31,6 +31,25 @@ Use `bun`, not npm or pnpm.
   they run. Never run them without the captain's say-so.
 - Run `./scripts/tunnel.sh` by hand before running a script when the dev
   server is not up.
+
+## Secrets
+
+`.env` is gitignored and is what the app reads. `.env.sops` is the committed
+copy, encrypted with SOPS and age: values are encrypted, key names stay
+readable. The age key is the same one Kouzr uses, kept in Apple Passwords
+under "Kouzr repo secrets (age)", never in git; `ops/env` prints how to
+restore it when it is missing. Install the tool with `brew install sops`.
+
+    ops/env pull     .env.sops -> .env      (after a clone)
+    ops/env push     .env -> .env.sops      (after adding or rotating a value)
+    ops/env diff     what push would change, keys only, never values
+    ops/env edit     edit .env.sops decrypted in $EDITOR
+    ops/env rekey    re-encrypt after adding a recipient to .sops.yaml
+
+`ops/env pull` points `core.hooksPath` at `ops/hooks`, whose pre-commit hook
+re-encrypts a changed `.env` into `.env.sops` in the same commit. Other env
+files (`.env.local`, `.env.production`) work the same way once encrypted with
+`ops/env push .env.local`. Do not hand-edit a `.sops` file.
 
 ## Checks
 

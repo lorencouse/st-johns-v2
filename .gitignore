@@ -45,3 +45,11 @@ next-env.d.ts
 # Local Whisper models (multi-GB) and scratch audio
 models/
 .tmp/
+
+# Plaintext env files of any name stay out; the encrypted .env*.sops copies
+# and .env.example are committed. See "Secrets" in README.md.
+.env*
+!.env.example
+!.env*.sops
+# Plaintext copies ops/env can leave beside .env.
+.env*.sops.tmp
