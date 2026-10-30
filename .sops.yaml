@@ -1,0 +1,14 @@
+# Which keys can open which files. Same age recipient as Kouzr (house-finder),
+# so one key in Apple Passwords opens both repos.
+#
+# Adding a machine or a person means adding their public key here and running
+# `ops/env rekey`.
+#
+# Public keys only. Nothing here is a secret.
+creation_rules:
+  # .tmp too: ops/env push encrypts a copy and moves it into place, and SOPS
+  # matches this against the file it is working on, not the one you meant.
+  - path_regex: \.env(\.[a-z]+)?\.sops(\.tmp)?$
+    input_type: dotenv
+    output_type: dotenv
+    age: age1nxylja7ehtuv7vxlllgt5ltn688yplqs30kv4xxjppcxlnrugagsk6vpy8
