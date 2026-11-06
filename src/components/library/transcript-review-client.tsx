@@ -523,7 +523,7 @@ export function TranscriptReviewClient({
 
       {/* Phones: switch between the two columns */}
       <div
-        role="tablist"
+        role="group"
         aria-label="Which words to show"
         className="flex gap-1 border-b border-zinc-200 p-2 md:hidden dark:border-zinc-800"
       >
@@ -536,10 +536,9 @@ export function TranscriptReviewClient({
           <button
             key={key}
             type="button"
-            role="tab"
-            aria-selected={mobilePane === key}
+            aria-pressed={mobilePane === key}
             onClick={() => setMobilePane(key)}
-            className={`flex-1 rounded-lg px-3 text-sm font-medium ${
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
               mobilePane === key
                 ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"

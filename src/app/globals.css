@@ -81,10 +81,11 @@ body {
 
 /*
  * iOS zooms the page when a field under 16px takes focus, so small text
- * fields are bumped to 16px on narrow screens. This sits outside the layers
- * so it beats the `text-xs`/`text-sm` utilities the fields are styled with.
+ * fields are bumped to 16px on narrow and touch screens. This sits outside the
+ * layers so it beats the `text-xs`/`text-sm` utilities the fields are styled
+ * with.
  */
-@media (width < 48rem) {
+@media (width < 48rem), (pointer: coarse) {
   :is(
       input:not(
           [type="checkbox"],
@@ -120,17 +121,4 @@ body {
   color: var(--color-blue-600, #2563eb);
   vertical-align: middle;
   user-select: none;
-}
-
-/*
- * iPhone Safari zooms the whole page into any text field under 16px and
- * leaves it zoomed. This is deliberately outside the layers so it wins over
- * small-text utilities like `text-xs` on touch screens.
- */
-@media (pointer: coarse) {
-  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
-  textarea,
-  select {
-    font-size: 16px;
-  }
 }

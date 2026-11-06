@@ -25,7 +25,7 @@ export function BlockControls({
   return (
     <div className="flex flex-col items-center justify-between pt-0.5 pb-0.5 shrink-0 w-7 pointer-coarse:w-auto pointer-coarse:flex-row pointer-coarse:justify-start pointer-coarse:gap-0.5">
       <div className="flex flex-col items-center gap-0.5 pointer-coarse:flex-row">
-        <span className="text-[10px] font-mono text-zinc-500 whitespace-nowrap tabular-nums pointer-coarse:text-xs">
+        <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap tabular-nums pointer-coarse:text-xs">
           {formatTimestampMs(startMs)}
         </span>
         <button
