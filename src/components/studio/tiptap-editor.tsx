@@ -24,6 +24,9 @@ export function TiptapEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    // Re-render on cursor moves too, so the toolbar's active state and
+    // aria-pressed follow the selection, not just content changes.
+    shouldRerenderOnTransaction: true,
     extensions: [
       // StarterKit's own paragraph and heading would strip the timestamp
       // attributes on every edit, so the timestamp-aware versions replace them.

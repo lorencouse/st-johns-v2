@@ -53,9 +53,13 @@ interface TranscriptReviewClientProps {
   documentCount: number;
 }
 
-function toBlocks(segments: Segment[]): ParagraphBlock[] {
+// The first ids come from the segment seq so the server render and the client
+// state agree; a random id here would not match after hydration, and the
+// "Show where it says" jump would find no paragraph. Blocks made later by a
+// split or insert get a random id.
+export function toBlocks(segments: Segment[]): ParagraphBlock[] {
   return segments.map((s) => ({
-    id: crypto.randomUUID(),
+    id: `seg-${s.seq}`,
     startMs: s.startMs,
     endMs: s.endMs,
     text: s.text,
