@@ -8,6 +8,7 @@ const POST_STATUS_LABELS: Record<string, string> = {
   ready_for_review: "Waiting for approval",
   changes_requested: "Changes requested",
   approved: "Approved",
+  published: "Published",
   archived: "Archived",
 };
 
@@ -37,6 +38,7 @@ export function reviewRequestLabel(status: string): string {
 export function postStatusTone(status: string): string {
   switch (status) {
     case "approved":
+    case "published":
       return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
     case "ready_for_review":
       return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
@@ -45,4 +47,15 @@ export function postStatusTone(status: string): string {
     default:
       return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
   }
+}
+
+/**
+ * The status to show for a post. A post marked as live on the website reads
+ * "Published" whatever its approval status, since that is what matters next.
+ */
+export function displayStatus(
+  status: string,
+  publishedAt: Date | string | null | undefined
+): string {
+  return publishedAt ? "published" : status;
 }

@@ -49,7 +49,7 @@ export function serviceStepHref(
     case "edit":
       return projectId ? `${base}/projects/${projectId}` : null;
     case "publish":
-      return projectId ? `${base}/projects/${projectId}#publish` : null;
+      return projectId ? `${base}/services/${videoId}/publish` : null;
   }
 }
 

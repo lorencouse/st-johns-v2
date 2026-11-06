@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { TiptapEditor } from "./tiptap-editor";
 import { TranscriptPanel } from "./transcript-panel";
 import { TranscriptIssues } from "./transcript-issues";
@@ -452,6 +453,13 @@ export function StudioClient({
             <h3 className="text-xs font-semibold uppercase text-zinc-400">
               Publish
             </h3>
+            <Link
+              href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+              className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Publish to Squarespace
+            </Link>
+            <p className="pt-2 text-xs text-zinc-500">Or copy it all at once:</p>
             <CopyHtmlButton workspaceId={workspaceId} projectId={projectId} />
 
             <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-400">

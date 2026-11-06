@@ -23,6 +23,7 @@ function nextStepText(video: LatestService): string {
   if (status === "ready_for_review") return "The post is waiting for approval.";
   if (status === "changes_requested")
     return "Changes were requested on the post. Open it to see them.";
+  if (status === "published") return "This post is on your website.";
   if (status === "approved") return "The post is approved and ready to publish.";
   if (status) return "The post is in progress. Pick up where you left off.";
   if (video.ingestStatus === "captions_available")

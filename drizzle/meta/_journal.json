@@ -29,6 +29,13 @@
       "when": 1789073253973,
       "tag": "0003_nasty_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793945584852,
+      "tag": "0004_post_published",
+      "breakpoints": true
     }
   ]
 }

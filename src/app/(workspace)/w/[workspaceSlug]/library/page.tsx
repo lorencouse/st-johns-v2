@@ -18,6 +18,7 @@ import {
 import { LibraryDashboard } from "@/components/library/library-dashboard";
 import { FILTER_KEYS, type FilterKey } from "@/components/library/library-filters";
 import { parsePage, parsePageSize, resolvePaging } from "@/lib/pagination";
+import { displayStatus } from "@/lib/status-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -173,6 +174,7 @@ export default async function LibraryPage({
       channelTitle: youtubeChannels.title,
       projectId: contentProjects.id,
       projectStatus: contentProjects.status,
+      projectPublishedAt: contentProjects.publishedAt,
     })
     .from(workspaceVideos)
     .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
@@ -202,6 +204,7 @@ export default async function LibraryPage({
       hasTranscript: hasTranscriptSql,
       projectId: contentProjects.id,
       projectStatus: contentProjects.status,
+      projectPublishedAt: contentProjects.publishedAt,
     })
     .from(workspaceVideos)
     .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
@@ -272,7 +275,13 @@ export default async function LibraryPage({
                 : latest.ingestStatus,
               project:
                 latest.projectId && latest.projectStatus
-                  ? { id: latest.projectId, status: latest.projectStatus }
+                  ? {
+                      id: latest.projectId,
+                      status: displayStatus(
+                        latest.projectStatus,
+                        latest.projectPublishedAt
+                      ),
+                    }
                   : null,
             }
           : null
@@ -315,7 +324,10 @@ export default async function LibraryPage({
         channelTitle: row.channelTitle,
         project:
           row.projectId && row.projectStatus
-            ? { id: row.projectId, status: row.projectStatus }
+            ? {
+                id: row.projectId,
+                status: displayStatus(row.projectStatus, row.projectPublishedAt),
+              }
             : null,
       }))}
     />
