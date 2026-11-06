@@ -49,3 +49,31 @@ export function blockIndexFromId(id: string): number | null {
   const m = /^b(\d+)$/.exec(id);
   return m ? Number(m[1]) : null;
 }
+
+/**
+ * The part of a fix that actually changes: the words shared at the start and
+ * end of `original` and `suggestion` are left out, so only the differing
+ * middle is replaced and unchanged words keep their own formatting. `start`
+ * and `end` are offsets into `original`; null when nothing differs.
+ */
+export function changedPart(
+  original: string,
+  suggestion: string
+): { start: number; end: number; text: string } | null {
+  if (original === suggestion) return null;
+  const max = Math.min(original.length, suggestion.length);
+  let prefix = 0;
+  while (prefix < max && original[prefix] === suggestion[prefix]) prefix++;
+  let suffix = 0;
+  while (
+    suffix < max - prefix &&
+    original[original.length - 1 - suffix] === suggestion[suggestion.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+  return {
+    start: prefix,
+    end: original.length - suffix,
+    text: suggestion.slice(prefix, suggestion.length - suffix),
+  };
+}

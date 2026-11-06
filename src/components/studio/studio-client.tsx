@@ -25,6 +25,7 @@ import { applySpot } from "@/lib/word-spots";
 import {
   blockIndexFromId,
   isPostField,
+  changedPart,
   locateText,
   type TextRun,
 } from "@/lib/post-spots";
@@ -254,9 +255,16 @@ export function StudioClient({
       const editor = editorRef.current;
       const range = findInEditor(spot);
       if (!editor || !range) return setSpotState(spot.key, "gone");
-      // A plain text swap keeps the formatting of the words it replaces and
-      // goes through the editor's normal autosave and undo.
-      editor.view.dispatch(editor.state.tr.insertText(spot.suggestion, range.from, range.to));
+      // Only the differing middle is swapped, so unchanged words keep their
+      // own formatting. locateText only returns unbroken ranges, so offsets
+      // in the phrase map straight onto document positions. A plain text
+      // swap goes through the editor's normal autosave and undo.
+      const change = changedPart(spot.original, spot.suggestion);
+      if (change) {
+        editor.view.dispatch(
+          editor.state.tr.insertText(change.text, range.from + change.start, range.from + change.end)
+        );
+      }
       setSpotState(spot.key, "used");
     },
     [findInEditor, patchDraft, setSpotState]

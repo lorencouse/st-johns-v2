@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { blockIndexFromId, isPostField, locateText } from "./post-spots";
+import { blockIndexFromId, changedPart, isPostField, locateText } from "./post-spots";
 
 describe("locateText", () => {
   test("finds a phrase inside one run", () => {
@@ -40,6 +40,26 @@ describe("locateText", () => {
     expect(locateText([{ text: "Isaiah 40", pos: 1 }], "Isiah")).toBeNull();
     expect(locateText([], "Isiah")).toBeNull();
     expect(locateText([{ text: "x", pos: 1 }], "")).toBeNull();
+  });
+});
+
+describe("changedPart", () => {
+  test("replaces only the changed letters, so unchanged words keep their formatting", () => {
+    // "Father " plain + "Mikel" bold: only "k" -> "cha" inside the bold run.
+    expect(changedPart("Father Mikel", "Father Michael")).toEqual({ start: 9, end: 10, text: "cha" });
+  });
+
+  test("handles pure insertions and deletions", () => {
+    expect(changedPart("Hymn 42", "Hymn 420")).toEqual({ start: 7, end: 7, text: "0" });
+    expect(changedPart("Isaiahh 40", "Isaiah 40")).toEqual({ start: 6, end: 7, text: "" });
+  });
+
+  test("does not let the shared start and end overlap", () => {
+    expect(changedPart("aa", "aaa")).toEqual({ start: 2, end: 2, text: "a" });
+  });
+
+  test("returns null when nothing differs", () => {
+    expect(changedPart("Grace", "Grace")).toBeNull();
   });
 });
 
