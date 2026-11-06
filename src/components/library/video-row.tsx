@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VideoActions } from "./video-actions";
-import { currentServiceStep, serviceStepHref } from "@/lib/service-steps";
+import { continueHref } from "@/lib/service-steps";
 import { postStatusLabel, postStatusTone } from "@/lib/status-labels";
 
 interface VideoRowProps {
@@ -19,6 +19,7 @@ interface VideoRowProps {
   };
   channelTitle: string | null;
   project: { id: string; status: string } | null;
+  canEdit: boolean;
 }
 
 export function VideoRow({
@@ -26,6 +27,7 @@ export function VideoRow({
   video,
   channelTitle,
   project,
+  canEdit,
 }: VideoRowProps) {
   const router = useRouter();
 
@@ -37,14 +39,12 @@ export function VideoRow({
 
   function handleClick() {
     if (isScheduled) return;
-    const projectId = project?.id ?? null;
-    const step = currentServiceStep({
-      captionsReady: video.ingestStatus === "captions_available",
-      projectId,
-    });
     router.push(
-      serviceStepHref(workspaceSlug, video.id, step, projectId) ??
-        serviceStepHref(workspaceSlug, video.id, "video", null)!
+      continueHref(workspaceSlug, video.id, {
+        captionsReady: video.ingestStatus === "captions_available",
+        projectId: project?.id ?? null,
+        canEdit,
+      })
     );
   }
 
@@ -108,7 +108,9 @@ export function VideoRow({
                     : "Not aired yet. Nothing to fetch yet"
                   : project
                     ? "Open the post"
-                    : video.ingestStatus === "captions_available"
+                    : !canEdit
+                      ? "Open the service"
+                      : video.ingestStatus === "captions_available"
                       ? "Check the captions and start the post"
                       : "Start this service when you are ready"}
             </p>
@@ -147,6 +149,7 @@ export function VideoRow({
           ingestStatus={video.ingestStatus}
           isScheduled={isScheduled}
           project={project}
+          canEdit={canEdit}
         />
       </td>
     </tr>

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CircleCheck, ExternalLink, Loader2, MonitorPlay, TriangleAlert } from "lucide-react";
 import { RunStatus } from "@/components/studio/run-status";
 import { ServiceSteps } from "./service-steps";
+import { serviceStepHref } from "@/lib/service-steps";
 
 interface CheckVideoClientProps {
   workspaceId: string;
@@ -67,9 +68,11 @@ export function CheckVideoClient({
   const shouldAutoStart = !captionsReady && !captionsFailed && !notAiredYet && canEdit;
   useEffect(() => {
     if (!shouldAutoStart || startedRef.current) return;
-    startedRef.current = true;
     // Deferred so the state updates happen outside the effect's own pass.
-    const timer = setTimeout(() => void startCaptions(), 0);
+    const timer = setTimeout(() => {
+      startedRef.current = true;
+      void startCaptions();
+    }, 0);
     return () => clearTimeout(timer);
   }, [shouldAutoStart, startCaptions]);
 
@@ -82,9 +85,12 @@ export function CheckVideoClient({
       })
     : null;
 
-  const nextHref = projectId
-    ? `/w/${workspaceSlug}/projects/${projectId}`
-    : `/w/${workspaceSlug}/library/${videoId}/review`;
+  const nextHref = captionsReady
+    ? serviceStepHref(workspaceSlug, videoId, projectId ? "edit" : "words", {
+        projectId,
+        canEdit,
+      })
+    : null;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -93,6 +99,7 @@ export function CheckVideoClient({
           workspaceSlug={workspaceSlug}
           videoId={videoId}
           projectId={projectId}
+          canEdit={canEdit}
           current="video"
         />
 
@@ -140,10 +147,17 @@ export function CheckVideoClient({
 
         <section aria-live="polite" className="rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
           {captionsReady ? (
-            <p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400">
-              <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
-              We have the spoken words from this service.
-            </p>
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400">
+                <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                We have the spoken words from this service.
+              </p>
+              {!nextHref && (
+                <p className="text-zinc-600 dark:text-zinc-300">
+                  Someone with editing access needs to start the post.
+                </p>
+              )}
+            </div>
           ) : notAiredYet ? (
             <p className="text-zinc-600 dark:text-zinc-300">
               This service hasn&apos;t finished airing yet. Come back once it
@@ -204,7 +218,7 @@ export function CheckVideoClient({
           >
             Back
           </Link>
-          {captionsReady ? (
+          {nextHref ? (
             <Link
               href={nextHref}
               className="inline-flex min-h-12 flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-6 text-base font-semibold text-white hover:bg-blue-700 sm:flex-none"

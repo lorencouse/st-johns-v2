@@ -17,7 +17,7 @@ import { looksSung } from "@/lib/repetition-flags";
 import { RunStatus } from "@/components/studio/run-status";
 import { BlockControls } from "@/components/library/block-controls";
 import { ServiceSteps } from "@/components/service/service-steps";
-import { servicePath } from "@/lib/service-steps";
+import { serviceStepHref } from "@/lib/service-steps";
 
 interface Segment {
   seq: number;
@@ -37,6 +37,8 @@ interface TranscriptReviewClientProps {
   workspaceId: string;
   workspaceSlug: string;
   videoId: string;
+  /** The post already written from this service, if there is one. */
+  projectId: string | null;
   videoTitle: string;
   providerVideoId: string;
   rawSegments: Segment[];
@@ -56,6 +58,7 @@ export function TranscriptReviewClient({
   workspaceId,
   workspaceSlug,
   videoId,
+  projectId,
   videoTitle,
   providerVideoId,
   rawSegments,
@@ -285,11 +288,11 @@ export function TranscriptReviewClient({
           <RunStatus
             runId={generateRunId}
             onSuccess={(run) => {
-              const projectId = (run.outputJson as { projectId?: string })
+              const newProjectId = (run.outputJson as { projectId?: string })
                 ?.projectId;
               router.push(
-                projectId
-                  ? `/w/${workspaceSlug}/projects/${projectId}`
+                newProjectId
+                  ? `/w/${workspaceSlug}/projects/${newProjectId}`
                   : `/w/${workspaceSlug}/library`
               );
               router.refresh();
@@ -311,7 +314,8 @@ export function TranscriptReviewClient({
         <ServiceSteps
           workspaceSlug={workspaceSlug}
           videoId={videoId}
-          projectId={null}
+          projectId={projectId}
+          canEdit
           current="words"
         />
       </div>
@@ -319,7 +323,12 @@ export function TranscriptReviewClient({
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href={servicePath(workspaceSlug, videoId)}
+            href={
+              serviceStepHref(workspaceSlug, videoId, "video", {
+                projectId,
+                canEdit: true,
+              })!
+            }
             aria-label="Back to the video"
             className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
@@ -353,18 +362,27 @@ export function TranscriptReviewClient({
           <span className="text-xs tabular-nums text-zinc-400">
             {visibleBlocks.length} blocks
           </span>
-          <button
-            onClick={handleSaveAndGenerate}
-            disabled={saving || visibleBlocks.length === 0}
-            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Sparkles className="h-3 w-3" />
-            )}
-            <span className="truncate">Save and write the post</span>
-          </button>
+          {projectId ? (
+            <Link
+              href={`/w/${workspaceSlug}/projects/${projectId}`}
+              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              <span className="truncate">Go to the post</span>
+            </Link>
+          ) : (
+            <button
+              onClick={handleSaveAndGenerate}
+              disabled={saving || visibleBlocks.length === 0}
+              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              <span className="truncate">Save and write the post</span>
+            </button>
+          )}
         </div>
       </div>
 

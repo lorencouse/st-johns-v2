@@ -210,6 +210,7 @@ export function StudioClient({
           workspaceSlug={workspaceSlug}
           videoId={videoId}
           projectId={projectId}
+          canEdit={canEdit}
           current="edit"
         />
       </div>

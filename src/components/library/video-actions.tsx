@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { currentServiceStep, serviceStepHref } from "@/lib/service-steps";
+import { continueHref, currentServiceStep } from "@/lib/service-steps";
 
 interface VideoActionsProps {
   videoId: string;
@@ -8,6 +8,8 @@ interface VideoActionsProps {
   /** Premiere or stream that has not finished airing, so nothing to do yet. */
   isScheduled?: boolean;
   project: { id: string; status: string } | null;
+  /** Owner, admin or editor; others skip checking the words. */
+  canEdit: boolean;
   /** "large" renders a full-size button for a featured card. */
   size?: "default" | "large";
 }
@@ -22,29 +24,33 @@ export function VideoActions({
   ingestStatus,
   isScheduled = false,
   project,
+  canEdit,
   size = "default",
 }: VideoActionsProps) {
   if (isScheduled) {
     return <span className="whitespace-nowrap text-xs text-zinc-400">Not aired yet</span>;
   }
 
-  const projectId = project?.id ?? null;
-  const step = currentServiceStep({
+  const progress = {
     captionsReady: ingestStatus === "captions_available",
-    projectId,
-  });
-  const href =
-    serviceStepHref(workspaceSlug, videoId, step, projectId) ??
-    serviceStepHref(workspaceSlug, videoId, "video", null)!;
+    projectId: project?.id ?? null,
+    canEdit,
+  };
+  const step = currentServiceStep(progress);
+  const href = continueHref(workspaceSlug, videoId, progress);
 
   const label =
     size === "large"
       ? step === "edit"
         ? "Continue the post"
-        : "Start the post"
+        : canEdit
+          ? "Start the post"
+          : "Open the service"
       : step === "edit"
         ? "Continue"
-        : "Start";
+        : canEdit
+          ? "Start"
+          : "Open";
 
   const sizing =
     size === "large"

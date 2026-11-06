@@ -44,6 +44,7 @@ interface LibraryDashboardProps {
   workspaceId: string;
   workspaceSlug: string;
   workspaceName: string;
+  canEdit: boolean;
   channelCount: number;
   playlists: LibraryPlaylist[];
   syncRunId: string | null;
@@ -112,6 +113,7 @@ export function LibraryDashboard({
   workspaceId,
   workspaceSlug,
   workspaceName,
+  canEdit,
   channelCount,
   playlists,
   syncRunId,
@@ -250,6 +252,7 @@ export function LibraryDashboard({
           <LatestServiceCard
             workspaceSlug={workspaceSlug}
             video={latestService}
+            canEdit={canEdit}
           />
         </div>
       )}
@@ -374,6 +377,7 @@ export function LibraryDashboard({
                         }}
                         channelTitle={video.channelTitle}
                         project={video.project}
+                        canEdit={canEdit}
                       />
                     ))}
                   </tbody>

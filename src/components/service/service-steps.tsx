@@ -10,6 +10,7 @@ interface ServiceStepsProps {
   workspaceSlug: string;
   videoId: string;
   projectId: string | null;
+  canEdit: boolean;
   current: ServiceStepKey;
 }
 
@@ -21,6 +22,7 @@ export function ServiceSteps({
   workspaceSlug,
   videoId,
   projectId,
+  canEdit,
   current,
 }: ServiceStepsProps) {
   const currentIndex = SERVICE_STEPS.findIndex((s) => s.key === current);
@@ -36,7 +38,7 @@ export function ServiceSteps({
           const done = index < currentIndex;
           const isCurrent = index === currentIndex;
           const href = done
-            ? serviceStepHref(workspaceSlug, videoId, step.key, projectId)
+            ? serviceStepHref(workspaceSlug, videoId, step.key, { projectId, canEdit })
             : null;
           const bar = done || isCurrent ? "bg-blue-600" : "bg-zinc-200 dark:bg-zinc-800";
           const text = isCurrent

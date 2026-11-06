@@ -17,28 +17,35 @@ export interface ServiceProgress {
   captionsReady: boolean;
   /** The post's id, once one has been started. */
   projectId: string | null;
+  /** The person can check the words and start posts (owner, admin, editor). */
+  canEdit: boolean;
 }
 
 /** The step a service is up to, for "Continue" links. */
 export function currentServiceStep(progress: ServiceProgress): ServiceStepKey {
   if (progress.projectId) return "edit";
-  if (progress.captionsReady) return "words";
+  if (progress.captionsReady && progress.canEdit) return "words";
   return "video";
 }
 
-/** Where each step lives. Steps with no page yet return null. */
+/**
+ * Where each step lives, for this person. Steps with no page yet, or a page
+ * they cannot open, return null. Checking the words is closed once a post
+ * exists, so it can never write over that post.
+ */
 export function serviceStepHref(
   workspaceSlug: string,
   videoId: string,
   step: ServiceStepKey,
-  projectId: string | null
+  progress: Pick<ServiceProgress, "projectId" | "canEdit">
 ): string | null {
   const base = `/w/${workspaceSlug}`;
+  const { projectId, canEdit } = progress;
   switch (step) {
     case "video":
       return `${base}/services/${videoId}`;
     case "words":
-      return `${base}/library/${videoId}/review`;
+      return canEdit && !projectId ? `${base}/library/${videoId}/review` : null;
     case "edit":
       return projectId ? `${base}/projects/${projectId}` : null;
     case "publish":
@@ -46,7 +53,16 @@ export function serviceStepHref(
   }
 }
 
-/** The single entry point for a service: its page sends people onward. */
-export function servicePath(workspaceSlug: string, videoId: string): string {
-  return `/w/${workspaceSlug}/services/${videoId}`;
+/** Where a service's "Continue" link goes: the page for its current step. */
+export function continueHref(
+  workspaceSlug: string,
+  videoId: string,
+  progress: ServiceProgress
+): string {
+  return serviceStepHref(
+    workspaceSlug,
+    videoId,
+    currentServiceStep(progress),
+    progress
+  )!;
 }

@@ -14,6 +14,7 @@ export interface LatestService {
 interface LatestServiceCardProps {
   workspaceSlug: string;
   video: LatestService;
+  canEdit: boolean;
 }
 
 /** One sentence telling staff where this service is up to. */
@@ -34,6 +35,7 @@ function nextStepText(video: LatestService): string {
 export function LatestServiceCard({
   workspaceSlug,
   video,
+  canEdit,
 }: LatestServiceCardProps) {
   const date = video.publishedAt
     ? new Date(video.publishedAt).toLocaleDateString(undefined, {
@@ -92,6 +94,7 @@ export function LatestServiceCard({
               workspaceSlug={workspaceSlug}
               ingestStatus={video.ingestStatus}
               project={video.project}
+              canEdit={canEdit}
               size="large"
             />
           </div>
