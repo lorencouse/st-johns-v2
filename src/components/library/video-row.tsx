@@ -139,7 +139,7 @@ export function VideoRow({
             {postStatusLabel(project.status)}
           </Link>
         ) : (
-          <span className="whitespace-nowrap text-xs text-zinc-400">Not started</span>
+          <span className="whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">Not started</span>
         )}
       </td>
       <td className="px-4 py-4">

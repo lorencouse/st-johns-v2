@@ -81,10 +81,11 @@ body {
 
 /*
  * iOS zooms the page when a field under 16px takes focus, so small text
- * fields are bumped to 16px on narrow screens. This sits outside the layers
- * so it beats the `text-xs`/`text-sm` utilities the fields are styled with.
+ * fields are bumped to 16px on narrow and touch screens. This sits outside the
+ * layers so it beats the `text-xs`/`text-sm` utilities the fields are styled
+ * with.
  */
-@media (width < 48rem) {
+@media (width < 48rem), (pointer: coarse) {
   :is(
       input:not(
           [type="checkbox"],

@@ -456,7 +456,7 @@ export function LibraryDashboard({
               </div>
               <div className="text-right">
                 <p className="text-2xl font-semibold tabular-nums">{completionPercent}%</p>
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                   completed
                 </p>
               </div>

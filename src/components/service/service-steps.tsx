@@ -45,7 +45,7 @@ export function ServiceSteps({
             ? "font-semibold text-zinc-900 dark:text-zinc-100"
             : done
               ? "text-zinc-600 dark:text-zinc-300"
-              : "text-zinc-400 dark:text-zinc-500";
+              : "text-zinc-500 dark:text-zinc-400";
           const label = (
             <>
               <span className={`block h-1 rounded-full ${bar}`} aria-hidden="true" />

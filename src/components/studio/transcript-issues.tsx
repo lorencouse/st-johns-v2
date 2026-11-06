@@ -110,7 +110,7 @@ export function TranscriptIssues({
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-400">
+        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
           Issues ({openIssues.length})
         </h3>
         <button
@@ -167,19 +167,19 @@ export function TranscriptIssues({
           </div>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">{issue.note}</p>
           {issue.anchorStartMs != null && (
-            <span className="mt-1 inline-block font-mono text-zinc-400">
+            <span className="mt-1 inline-block font-mono text-zinc-500 dark:text-zinc-400">
               {formatMs(issue.anchorStartMs)}
               {issue.anchorEndMs != null && ` – ${formatMs(issue.anchorEndMs)}`}
             </span>
           )}
-          <div className="mt-1 text-zinc-400">
+          <div className="mt-1 text-zinc-500 dark:text-zinc-400">
             {issue.createdByName} · {new Date(issue.createdAt).toLocaleDateString()}
           </div>
         </div>
       ))}
 
       {resolvedIssues.length > 0 && (
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {resolvedIssues.length} resolved issue{resolvedIssues.length !== 1 ? "s" : ""}
         </p>
       )}

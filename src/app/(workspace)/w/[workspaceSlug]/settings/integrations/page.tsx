@@ -91,7 +91,7 @@ export default async function IntegrationsPage({
                         {channel.syncStatus}
                       </span>
                       {channel.lastSyncedAt && (
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
                           Last synced{" "}
                           {new Date(channel.lastSyncedAt).toLocaleDateString()}
                         </span>

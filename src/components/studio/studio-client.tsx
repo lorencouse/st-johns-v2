@@ -216,9 +216,9 @@ export function StudioClient({
         />
       </div>
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      {/* Left rail - transcript */}
-      <div className="shrink-0 border-b border-zinc-200 p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0 dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-400">
+      {/* Left rail - transcript. On phones it moves below the post. */}
+      <div className="order-3 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-r dark:border-zinc-800">
+        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
           Video
         </h3>
         <p className="mt-1 text-sm font-medium">{videoTitle}</p>
@@ -227,6 +227,7 @@ export function StudioClient({
           <div className="mt-3 aspect-video overflow-hidden rounded-lg">
             <iframe
               src={`https://www.youtube.com/embed/${providerVideoId}`}
+              title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen
             />
@@ -234,7 +235,7 @@ export function StudioClient({
         )}
 
         <div className="mt-4">
-          <h3 className="text-xs font-semibold uppercase text-zinc-400">
+          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
             Transcript
           </h3>
           <div className="mt-2 max-h-64 overflow-y-auto lg:max-h-[calc(100vh-500px)]">
@@ -246,7 +247,7 @@ export function StudioClient({
       </div>
 
       {/* Center - editor */}
-      <div className="min-w-0 flex-1 p-4 sm:p-6 lg:overflow-y-auto">
+      <div className="order-1 min-w-0 flex-1 p-4 sm:p-6 lg:order-none lg:overflow-y-auto">
         <div className="mx-auto max-w-3xl">
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             {draft ? (
@@ -264,12 +265,12 @@ export function StudioClient({
             ) : (
               <h1 className="text-2xl font-bold">{projectTitle}</h1>
             )}
-            <div className="flex min-w-0 flex-wrap items-center gap-2 pt-2">
+            <div aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-2 pt-2">
               <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
                 {postStatusLabel(projectStatus)}
               </span>
               {saving && (
-                <span className="text-xs text-zinc-400">Saving...</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">Saving...</span>
               )}
               {!saving && saveFailed && (
                 <span className="text-xs font-medium text-red-600">
@@ -301,7 +302,7 @@ export function StudioClient({
 
               {/* Summary */}
               <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
-                <h3 className="text-xs font-semibold uppercase text-zinc-400">
+                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
                   Summary
                 </h3>
                 <AutoTextarea
@@ -322,7 +323,7 @@ export function StudioClient({
                 readers will see above the transcript.
               */}
               <div className="rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
-                <h3 className="text-xs font-semibold uppercase text-zinc-400">
+                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
                   Transcript notice (added on export)
                 </h3>
                 <p className="mt-1 text-sm italic text-zinc-500">
@@ -371,7 +372,7 @@ export function StudioClient({
           )}
 
           {error && (
-            <p className="mt-4 text-sm text-red-600">{error}</p>
+            <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>
           )}
 
           {exportRunId && (
@@ -394,17 +395,17 @@ export function StudioClient({
       </div>
 
       {/* Right panel - actions */}
-      <div className="shrink-0 border-t border-zinc-200 p-4 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-400">
+      <div className="order-2 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l dark:border-zinc-800">
+        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
           Details
         </h3>
         <dl className="mt-3 space-y-3 text-sm">
           <div>
-            <dt className="text-zinc-400">Status</dt>
+            <dt className="text-zinc-500 dark:text-zinc-400">Status</dt>
             <dd className="font-medium">{postStatusLabel(projectStatus)}</dd>
           </div>
           <div>
-            <dt className="text-zinc-400">Draft</dt>
+            <dt className="text-zinc-500 dark:text-zinc-400">Draft</dt>
             <dd className="font-medium">
               {draft ? `Version ${draft.versionNumber}` : "Not written yet"}
             </dd>
@@ -413,7 +414,7 @@ export function StudioClient({
 
         {/* Review Actions */}
         <div className="mt-6 space-y-2">
-          <h3 className="text-xs font-semibold uppercase text-zinc-400">
+          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
             Approval (optional)
           </h3>
 
@@ -450,7 +451,7 @@ export function StudioClient({
         {/* Export Actions */}
         {draft && (
           <div id="publish" className="mt-6 scroll-mt-4 space-y-2">
-            <h3 className="text-xs font-semibold uppercase text-zinc-400">
+            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
               Publish
             </h3>
             <Link
@@ -462,7 +463,7 @@ export function StudioClient({
             <p className="pt-2 text-xs text-zinc-500">Or copy it all at once:</p>
             <CopyHtmlButton workspaceId={workspaceId} projectId={projectId} />
 
-            <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-400">
+            <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
               Download a file
             </h3>
             <button
@@ -495,6 +496,17 @@ export function StudioClient({
         </div>
       </div>
     </div>
+      {/* Phones: the next step stays in reach while editing */}
+      {draft && (
+        <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
+          <Link
+            href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+            className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Publish to Squarespace
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

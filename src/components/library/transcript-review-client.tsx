@@ -53,9 +53,13 @@ interface TranscriptReviewClientProps {
   documentCount: number;
 }
 
-function toBlocks(segments: Segment[]): ParagraphBlock[] {
+// The first ids come from the segment seq so the server render and the client
+// state agree; a random id here would not match after hydration, and the
+// "Show where it says" jump would find no paragraph. Blocks made later by a
+// split or insert get a random id.
+export function toBlocks(segments: Segment[]): ParagraphBlock[] {
   return segments.map((s) => ({
-    id: crypto.randomUUID(),
+    id: `seg-${s.seq}`,
     startMs: s.startMs,
     endMs: s.endMs,
     text: s.text,
@@ -85,6 +89,8 @@ export function TranscriptReviewClient({
   const [saving, setSaving] = useState(false);
   const [generateRunId, setGenerateRunId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Phones show one column at a time; wider screens show both side by side.
+  const [mobilePane, setMobilePane] = useState<"edit" | "youtube">("edit");
   const [spots, setSpots] = useState<Spot[]>([]);
   const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("checking");
   const checkStartedRef = useRef(false);
@@ -228,12 +234,15 @@ export function TranscriptReviewClient({
   }, []);
 
   const focusBlock = useCallback((id: string) => {
-    const el = cleanedPaneRef.current?.querySelector<HTMLTextAreaElement>(
-      `[data-block-id="${id}"] textarea`
-    );
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.focus({ preventScroll: true });
+    setMobilePane("edit");
+    requestAnimationFrame(() => {
+      const el = cleanedPaneRef.current?.querySelector<HTMLTextAreaElement>(
+        `[data-block-id="${id}"] textarea`
+      );
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus({ preventScroll: true });
+    });
   }, []);
 
   const handleUseSpot = useCallback(
@@ -396,8 +405,30 @@ export function TranscriptReviewClient({
     );
   }
 
+  const primaryAction = projectId ? (
+    <Link
+      href={`/w/${workspaceSlug}/projects/${projectId}`}
+      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 md:min-h-0 md:w-auto md:rounded-md md:px-3 md:py-1.5 md:text-xs md:font-medium"
+    >
+      <span className="truncate">Go to the post</span>
+    </Link>
+  ) : (
+    <button
+      onClick={handleSaveAndGenerate}
+      disabled={saving || visibleBlocks.length === 0}
+      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 md:min-h-0 md:w-auto md:rounded-md md:px-3 md:py-1.5 md:text-xs md:font-medium"
+    >
+      {saving ? (
+        <Loader2 className="h-4 w-4 animate-spin md:h-3 md:w-3" aria-hidden="true" />
+      ) : (
+        <Sparkles className="h-4 w-4 md:h-3 md:w-3" aria-hidden="true" />
+      )}
+      <span className="truncate">Save and write the post</span>
+    </button>
+  );
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-full flex-col md:h-full">
       <div className="border-b border-zinc-200 px-4 pt-4 pb-3 dark:border-zinc-800">
         <ServiceSteps
           workspaceSlug={workspaceSlug}
@@ -418,7 +449,7 @@ export function TranscriptReviewClient({
               })!
             }
             aria-label="Back to documents"
-            className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
+            className="shrink-0 text-zinc-500 dark:text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -441,41 +472,22 @@ export function TranscriptReviewClient({
               </span>
               <button
                 onClick={handleClearTrim}
-                className="text-zinc-400 hover:text-zinc-600"
+                aria-label="Clear start and end marks"
+                className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-600 pointer-coarse:flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           )}
-          <span className="text-xs tabular-nums text-zinc-400">
+          <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
             {visibleBlocks.length} blocks
           </span>
-          {projectId ? (
-            <Link
-              href={`/w/${workspaceSlug}/projects/${projectId}`}
-              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-            >
-              <span className="truncate">Go to the post</span>
-            </Link>
-          ) : (
-            <button
-              onClick={handleSaveAndGenerate}
-              disabled={saving || visibleBlocks.length === 0}
-              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Sparkles className="h-3 w-3" />
-              )}
-              <span className="truncate">Save and write the post</span>
-            </button>
-          )}
+          <div className="hidden md:block">{primaryAction}</div>
         </div>
       </div>
 
       {error && (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600 dark:border-red-900 dark:bg-red-950/30">
+        <div role="alert" className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
           {error}
         </div>
       )}
@@ -505,6 +517,7 @@ export function TranscriptReviewClient({
           <div className="mx-auto max-w-2xl aspect-video overflow-hidden rounded-lg">
             <iframe
               src={`https://www.youtube.com/embed/${providerVideoId}`}
+              title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen
             />
@@ -512,18 +525,48 @@ export function TranscriptReviewClient({
         </div>
       )}
 
+      {/* Phones: switch between the two columns */}
+      <div
+        role="group"
+        aria-label="Which words to show"
+        className="flex gap-1 border-b border-zinc-200 p-2 md:hidden dark:border-zinc-800"
+      >
+        {(
+          [
+            ["edit", "Your version"],
+            ["youtube", "From YouTube"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={mobilePane === key}
+            onClick={() => setMobilePane(key)}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+              mobilePane === key
+                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Two-pane editor */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex md:min-h-0 md:flex-1 md:overflow-hidden">
         {/* Left pane: raw segments */}
-        <div className="w-1/2 flex flex-col border-r border-zinc-200 dark:border-zinc-800">
+        <div
+          className={`${mobilePane === "youtube" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2 md:border-r md:border-zinc-200 md:dark:border-zinc-800`}
+        >
           <div className="border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-400">
+            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
               From YouTube ({visibleRaw.length} lines)
             </h3>
           </div>
           <div
             ref={originalPaneRef}
-            className="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs"
+            className="space-y-1 p-2 font-mono text-xs md:flex-1 md:overflow-y-auto"
           >
             {visibleRaw.map((seg) => {
               const isActive =
@@ -538,7 +581,7 @@ export function TranscriptReviewClient({
                     isActive ? "bg-blue-50 dark:bg-blue-900/20" : ""
                   }`}
                 >
-                  <span className="text-zinc-400">
+                  <span className="text-zinc-500 dark:text-zinc-400">
                     [{formatTimestampMs(seg.startMs)}]
                   </span>{" "}
                   {seg.text}
@@ -549,9 +592,11 @@ export function TranscriptReviewClient({
         </div>
 
         {/* Right pane: editable blocks */}
-        <div className="w-1/2 flex flex-col">
+        <div
+          className={`${mobilePane === "edit" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2`}
+        >
           <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-400">
+            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
               Your version ({visibleBlocks.length} paragraphs)
             </h3>
             <button
@@ -559,13 +604,13 @@ export function TranscriptReviewClient({
               disabled={!canUndo}
               className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800"
             >
-              <Undo2 className="h-3 w-3" />
+              <Undo2 className="h-3 w-3" aria-hidden="true" />
               <span className="truncate">Undo</span>
             </button>
           </div>
           <div
             ref={cleanedPaneRef}
-            className="flex-1 overflow-y-auto p-2 space-y-2"
+            className="space-y-2 p-2 md:flex-1 md:overflow-y-auto"
           >
             {visibleBlocks.map((block) => {
               const flags = flagContent(block.text);
@@ -626,7 +671,8 @@ export function TranscriptReviewClient({
                           handleSplitBlock(block.id, target.selectionStart);
                         }
                       }}
-                      className={`w-full rounded-md border px-2 py-1 font-mono text-xs resize-y min-h-[48px] focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                      aria-label={`Paragraph at ${formatTimestampMs(block.startMs)}`}
+                      className={`w-full rounded-md border px-2 py-1 text-xs resize-y min-h-[48px] focus:outline-none focus:ring-1 focus:ring-blue-500 pointer-coarse:[field-sizing:content] md:font-mono ${
                         hasFlaggedContent
                           ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20"
                           : likelySung
@@ -646,6 +692,11 @@ export function TranscriptReviewClient({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Phones: the next step stays in reach */}
+      <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur md:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
+        {primaryAction}
       </div>
     </div>
   );

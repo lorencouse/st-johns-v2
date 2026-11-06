@@ -124,7 +124,7 @@ export function CheckVideoClient({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-zinc-400">
+                <div className="flex h-full items-center justify-center text-zinc-500 dark:text-zinc-400">
                   <MonitorPlay className="h-10 w-10" aria-hidden="true" />
                 </div>
               )}
