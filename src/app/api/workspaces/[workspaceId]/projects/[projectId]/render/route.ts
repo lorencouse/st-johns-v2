@@ -70,7 +70,12 @@ export async function GET(
     summary: draft.summary,
     // The title is a Squarespace field of its own, so it is only baked into
     // the body for the formatted paste where nothing else carries it.
-    title: embed === "link" ? draft.title : null,
+    // The guided publish step copies the title on its own, so it asks for
+    // the body without one (title=omit).
+    title:
+      embed === "link" && req.nextUrl.searchParams.get("title") !== "omit"
+        ? draft.title
+        : null,
     embed,
   });
 

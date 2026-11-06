@@ -63,6 +63,10 @@ export const contentProjects = pgTable(
       .defaultNow()
       .notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** When someone confirmed the post is live on the church's website. */
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** The live post's address, if they gave one. */
+    publishedUrl: text("published_url"),
   },
   (t) => [
     index("idx_content_project_workspace_status").on(

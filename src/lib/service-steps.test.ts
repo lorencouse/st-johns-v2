@@ -50,7 +50,7 @@ describe("serviceStepHref", () => {
     ).toBe("/w/stj/projects/p1");
     expect(
       serviceStepHref("stj", "v1", "publish", { projectId: "p1", ...editor })
-    ).toBe("/w/stj/projects/p1#publish");
+    ).toBe("/w/stj/services/v1/publish");
   });
 
   test("has no link for the post steps before a post exists", () => {
