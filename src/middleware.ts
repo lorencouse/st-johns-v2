@@ -34,6 +34,6 @@ export const config = {
   // middleware, so signed-out visitors and crawlers get them instead of a
   // redirect to /signin.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|icons/|manifest\\.json|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/workspaces/[^/]+/videos/[^/]+/documents|icons/|manifest\\.json|robots\\.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

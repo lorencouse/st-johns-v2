@@ -8,11 +8,18 @@ const MAX_TEXT_CHARS = 200_000;
 
 function tidy(text: string): string {
   return text
+    .replace(/\u0000/g, "")
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, MAX_TEXT_CHARS);
+}
+
+function textEncoding(head: Uint8Array): string {
+  if (head[0] === 0xff && head[1] === 0xfe) return "utf-16le";
+  if (head[0] === 0xfe && head[1] === 0xff) return "utf-16be";
+  return "utf-8";
 }
 
 async function readPhoto(bytes: ArrayBuffer, contentType: string): Promise<string> {
@@ -68,7 +75,7 @@ export async function extractDocumentText(
       break;
     }
     case "text":
-      text = new TextDecoder("utf-8").decode(bytes);
+      text = new TextDecoder(textEncoding(new Uint8Array(bytes))).decode(bytes);
       break;
     case "image":
       text = await readPhoto(bytes, contentType);

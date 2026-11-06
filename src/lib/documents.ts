@@ -87,7 +87,7 @@ export function documentProblem(file: {
     return "That file is too big. Files can be up to 20 MB.";
   }
   if (!documentFormat(file.type, file.name)) {
-    return "We can read PDF, Word (.docx), plain text and photos (JPG or PNG).";
+    return "We can read PDF, Word (.docx), plain text and photos (JPG, PNG, WebP or GIF).";
   }
   return null;
 }

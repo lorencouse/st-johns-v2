@@ -64,19 +64,21 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     );
   }
 
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: "Document storage isn't set up." }, { status: 503 });
+  }
+
   const doc = await findDocument(workspaceId, videoId, documentId);
   if (!doc) return NextResponse.json({ error: "File not found" }, { status: 404 });
 
-  if (isStorageConfigured()) {
-    try {
-      await deleteObject(doc.storageKey);
-    } catch (err) {
-      console.error("[documents] delete from storage failed", err);
-      return NextResponse.json(
-        { error: "We couldn't remove that file. Try again in a moment." },
-        { status: 502 }
-      );
-    }
+  try {
+    await deleteObject(doc.storageKey);
+  } catch (err) {
+    console.error("[documents] delete from storage failed", err);
+    return NextResponse.json(
+      { error: "We couldn't remove that file. Try again in a moment." },
+      { status: 502 }
+    );
   }
 
   await db.delete(serviceDocuments).where(eq(serviceDocuments.id, doc.id));
