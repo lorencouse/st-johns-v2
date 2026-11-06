@@ -29,6 +29,19 @@ import {
   type TextRun,
 } from "@/lib/post-spots";
 
+type DocNode = Editor["state"]["doc"];
+
+/** Paragraphs and headings in document order, including those in lists and quotes. */
+function textblocksOf(doc: DocNode): Array<{ node: DocNode; pos: number }> {
+  const blocks: Array<{ node: DocNode; pos: number }> = [];
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    blocks.push({ node, pos });
+    return false;
+  });
+  return blocks;
+}
+
 interface StudioClientProps {
   workspaceId: string;
   workspaceSlug: string;
@@ -163,9 +176,12 @@ export function StudioClient({
       { id: "intro", text: fieldsRef.current.intro },
       { id: "summary", text: fieldsRef.current.summary },
     ];
-    editorRef.current?.state.doc.forEach((node, _offset, index) => {
-      paragraphs.push({ id: `b${index}`, text: node.textContent });
-    });
+    const doc = editorRef.current?.state.doc;
+    if (doc) {
+      textblocksOf(doc).forEach(({ node }, index) => {
+        paragraphs.push({ id: `b${index}`, text: node.textContent });
+      });
+    }
     try {
       const res = await fetch(
         `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
@@ -195,21 +211,24 @@ export function StudioClient({
     const editor = editorRef.current;
     const index = blockIndexFromId(spot.paragraphId);
     if (!editor || index === null) return null;
-    const doc = editor.state.doc;
-    const runsOf = (node: typeof doc, base: number): TextRun[] => {
+    const blocks = textblocksOf(editor.state.doc);
+    const runsOf = ({ node, pos }: (typeof blocks)[number]): TextRun[] => {
       const runs: TextRun[] = [];
-      node.descendants((child, pos) => {
-        if (child.isText && child.text) runs.push({ text: child.text, pos: base + pos });
+      node.descendants((child, childPos) => {
+        if (child.isText && child.text) runs.push({ text: child.text, pos: pos + 1 + childPos });
       });
       return runs;
     };
-    // The block it was found in first, then anywhere, in case paragraphs
-    // were added or removed since the check ran.
-    let found: { from: number; to: number } | null = null;
-    doc.forEach((node, offset, i) => {
-      if (!found && i === index) found = locateText(runsOf(node, offset + 1), spot.original);
-    });
-    return found ?? locateText(runsOf(doc, 0), spot.original);
+    // The block it was found in first, then any other block, in case
+    // paragraphs were added or removed since the check ran.
+    const home = blocks[index];
+    const found = home ? locateText(runsOf(home), spot.original) : null;
+    if (found) return found;
+    for (const block of blocks) {
+      const range = locateText(runsOf(block), spot.original);
+      if (range) return range;
+    }
+    return null;
   }, []);
 
   const handleUseSpot = useCallback(
