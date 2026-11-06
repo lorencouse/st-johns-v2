@@ -324,12 +324,12 @@ export function TranscriptReviewClient({
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href={
-              serviceStepHref(workspaceSlug, videoId, "video", {
+              serviceStepHref(workspaceSlug, videoId, "documents", {
                 projectId,
                 canEdit: true,
               })!
             }
-            aria-label="Back to the video"
+            aria-label="Back to documents"
             className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />

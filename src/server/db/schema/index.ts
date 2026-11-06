@@ -6,3 +6,4 @@ export * from "./transcript";
 export * from "./editorial";
 export * from "./review";
 export * from "./operations";
+export * from "./documents";

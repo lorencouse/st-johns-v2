@@ -16,7 +16,7 @@ interface ServiceStepsProps {
 
 /**
  * Progress bar for one service's guided path. Finished steps link back so
- * people can revisit them; on a phone it collapses to "Step 2 of 4".
+ * people can revisit them; on a phone it collapses to "Step 2 of 5".
  */
 export function ServiceSteps({
   workspaceSlug,

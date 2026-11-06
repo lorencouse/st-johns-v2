@@ -32,15 +32,18 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
+    "aws4fetch": "^1.0.20",
     "bullmq": "^5.81.5",
     "drizzle-orm": "^0.45.3",
     "lucide-react": "^0.577.0",
+    "mammoth": "^1.13.0",
     "next": "16.4.3",
     "next-auth": "^5.0.0-beta.32",
     "openai": "^6.49.0",
     "postgres": "^3.4.9",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "unpdf": "^2.1.0",
     "uuid": "^13.0.2"
   },
   "devDependencies": {

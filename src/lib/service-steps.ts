@@ -1,10 +1,11 @@
 /**
  * The guided path every service follows, from its YouTube video to a
- * published post. The sermon and bulletin upload step joins this list when
- * document upload is built.
+ * published post. Adding documents is optional but sits before checking the
+ * words, because the sermon and bulletin help get names and verses right.
  */
 export const SERVICE_STEPS = [
   { key: "video", label: "Check the video" },
+  { key: "documents", label: "Add documents" },
   { key: "words", label: "Check the words" },
   { key: "edit", label: "Edit the post" },
   { key: "publish", label: "Publish" },
@@ -24,7 +25,7 @@ export interface ServiceProgress {
 /** The step a service is up to, for "Continue" links. */
 export function currentServiceStep(progress: ServiceProgress): ServiceStepKey {
   if (progress.projectId) return "edit";
-  if (progress.captionsReady && progress.canEdit) return "words";
+  if (progress.captionsReady && progress.canEdit) return "documents";
   return "video";
 }
 
@@ -44,6 +45,8 @@ export function serviceStepHref(
   switch (step) {
     case "video":
       return `${base}/services/${videoId}`;
+    case "documents":
+      return canEdit ? `${base}/services/${videoId}/documents` : null;
     case "words":
       return canEdit && !projectId ? `${base}/library/${videoId}/review` : null;
     case "edit":
