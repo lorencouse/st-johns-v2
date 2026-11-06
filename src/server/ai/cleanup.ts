@@ -1,5 +1,6 @@
-import { getOpenAIClient, MODEL } from "./openai";
+import { getOpenAIClient, MODEL, samplingParams } from "./openai";
 import type { CaptionSegment } from "@/server/youtube/api";
+import { withReference } from "@/server/documents/reference-text";
 
 export interface Paragraph {
   timestamp: number;
@@ -428,8 +429,8 @@ Rules:
 6. Break text into logical paragraphs (3-5 sentences each).
 7. Preserve the approximate timestamps.
 
-Return a JSON array of objects with "timestamp" (seconds as number) and "text" (cleaned paragraph text) fields.
-Return ONLY the JSON array. No explanation, no markdown fences, just the JSON array.`;
+Return a JSON object with one field, "paragraphs": an array with one object per paragraph, each with "timestamp" (seconds as a number) and "text" (the cleaned paragraph text). Include every paragraph of the transcript, in order.
+Return ONLY the JSON object. No explanation, no markdown fences.`;
 
 function parseCleanupResponse(
   responseText: string,
@@ -485,7 +486,8 @@ function parseCleanupResponse(
 // Process a single chunk of segments through AI cleanup
 async function aiCleanupChunk(
   filtered: CaptionSegment[],
-  fallbackParagraphs: Paragraph[]
+  fallbackParagraphs: Paragraph[],
+  reference: string | null = null
 ): Promise<{ paragraphs: Paragraph[]; tokensUsed: number | null; inputTokens: number | null; outputTokens: number | null; aiModel: string | null }> {
   const transcriptText = filtered
     .map((seg) => `[${formatTimestamp(seg.start)}] ${seg.text}`)
@@ -495,11 +497,10 @@ async function aiCleanupChunk(
   const response = await openai.chat.completions.create({
     model: MODEL,
     messages: [
-      { role: "system", content: CLEANUP_SYSTEM_PROMPT },
+      { role: "system", content: withReference(CLEANUP_SYSTEM_PROMPT, reference) },
       { role: "user", content: transcriptText },
     ],
-    temperature: 0.1,
-    max_tokens: 16384,
+    ...samplingParams(0.1, 16384),
     response_format: { type: "json_object" },
   });
 
@@ -547,6 +548,15 @@ async function aiCleanupChunk(
         `(${Math.round((outputWords / inputWords) * 100)}%, need ${Math.round(MIN_RETENTION * 100)}%)`
     );
   }
+  // With reference documents in the prompt, the opposite failure is possible:
+  // the model pasting in sermon text that was never said. Cleanup only ever
+  // removes words, so clear growth means the chunk is retried or falls back.
+  if (reference && inputWords > 0 && outputWords / inputWords > MAX_GROWTH) {
+    throw new Error(
+      `Cleanup added text: ${outputWords} words from ${inputWords} ` +
+        `(over ${Math.round(MAX_GROWTH * 100)}%)`
+    );
+  }
 
   return { paragraphs: final, tokensUsed, inputTokens, outputTokens, aiModel };
 }
@@ -570,6 +580,9 @@ const CHUNK_ATTEMPTS = 3;
  * fallback) can salvage the section.
  */
 const MIN_RETENTION = 0.55;
+
+/** More words out than this fraction of words in means content was added. */
+const MAX_GROWTH = 1.2;
 
 const countWords = (text: string): number =>
   text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
@@ -677,7 +690,9 @@ export async function withRetries<T>(
 }
 
 export async function aiCleanup(
-  segments: CaptionSegment[]
+  segments: CaptionSegment[],
+  /** The service's sermon and bulletin text, for spellings and titles. */
+  reference: string | null = null
 ): Promise<CleanupResult> {
   const filtered = filterNoise(segments).flatMap(splitOversizedSegment);
 
@@ -702,7 +717,7 @@ export async function aiCleanup(
     const chunkFallback = mergeIntoParagraphs(chunks[i]);
     try {
       const result = await withRetries(
-        () => aiCleanupChunk(chunks[i], chunkFallback),
+        () => aiCleanupChunk(chunks[i], chunkFallback, reference),
         CHUNK_ATTEMPTS,
         `chunk ${i + 1}/${chunks.length}`
       );
@@ -801,7 +816,8 @@ function parseSummaryResponse(
 }
 
 export async function generateSummary(
-  paragraphs: Paragraph[]
+  paragraphs: Paragraph[],
+  reference: string | null = null
 ): Promise<SummaryResult> {
   const condensed = paragraphs.map((p) => p.text).join("\n\n");
   const words = condensed.split(/\s+/);
@@ -815,10 +831,10 @@ export async function generateSummary(
         openai.chat.completions.create({
           model: MODEL,
           messages: [
-            { role: "system", content: SUMMARY_PROMPT },
+            { role: "system", content: withReference(SUMMARY_PROMPT, reference) },
             { role: "user", content: truncated },
           ],
-          temperature: 0.3,
+          ...samplingParams(0.3),
           response_format: { type: "json_object" },
         }),
       3,

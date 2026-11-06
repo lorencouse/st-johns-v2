@@ -12,6 +12,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { redoBlockReason } from "@/server/content/redo-guard";
 import { aiCleanup, generateSummary } from "@/server/ai/cleanup";
 import { generateStructure } from "@/server/ai/structure";
+import { loadReferenceText } from "@/server/documents/reference";
 import {
   buildBlocks,
   blocksToContentJson,
@@ -147,9 +148,14 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       text: s.text,
     }));
 
-    // 4. Run AI cleanup
-    console.log(`[draft-generate] Running AI cleanup for ${video.title}`);
-    const cleanupResult = await aiCleanup(captionSegments);
+    // 4. Run AI cleanup. The sermon and bulletin, when uploaded, ride along
+    // as a spelling and title reference; without them nothing changes.
+    const reference = await loadReferenceText(workspaceId, videoId);
+    console.log(
+      `[draft-generate] Running AI cleanup for ${video.title}` +
+        (reference.text ? ` with ${reference.documentCount} reference document(s)` : "")
+    );
+    const cleanupResult = await aiCleanup(captionSegments, reference.text);
 
     // 5. Generate intro + summary and the section outline. Neither depends on
     // the other, and both are non-fatal, so they run together.
@@ -157,8 +163,8 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       `[draft-generate] Generating summary and structure for ${video.title}`
     );
     const [summaryResult, structureResult] = await Promise.all([
-      generateSummary(cleanupResult.paragraphs),
-      generateStructure(cleanupResult.paragraphs),
+      generateSummary(cleanupResult.paragraphs, reference.text),
+      generateStructure(cleanupResult.paragraphs, reference.text),
     ]);
 
     // 6. Build the Tiptap document with section headings interleaved
@@ -252,6 +258,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
               sections: structureResult.sections,
               generatedTitle: structureResult.title,
               sourceVideoTitle: video.title,
+              referenceDocuments: reference.text ? reference.documentCount : 0,
             },
             createdByUserId: userId,
           })

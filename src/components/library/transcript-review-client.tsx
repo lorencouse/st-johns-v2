@@ -18,6 +18,12 @@ import { RunStatus } from "@/components/studio/run-status";
 import { BlockControls } from "@/components/library/block-controls";
 import { ServiceSteps } from "@/components/service/service-steps";
 import { serviceStepHref } from "@/lib/service-steps";
+import { applySpot } from "@/lib/word-spots";
+import {
+  WordCheckPanel,
+  type Spot,
+  type WordCheckStatus,
+} from "@/components/service/word-check-panel";
 
 interface Segment {
   seq: number;
@@ -43,6 +49,8 @@ interface TranscriptReviewClientProps {
   providerVideoId: string;
   rawSegments: Segment[];
   editableSegments: Segment[];
+  /** Uploaded documents whose text could be read. */
+  documentCount: number;
 }
 
 function toBlocks(segments: Segment[]): ParagraphBlock[] {
@@ -63,6 +71,7 @@ export function TranscriptReviewClient({
   providerVideoId,
   rawSegments,
   editableSegments,
+  documentCount,
 }: TranscriptReviewClientProps) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<ParagraphBlock[]>(() =>
@@ -76,6 +85,11 @@ export function TranscriptReviewClient({
   const [saving, setSaving] = useState(false);
   const [generateRunId, setGenerateRunId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [spots, setSpots] = useState<Spot[]>([]);
+  const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("checking");
+  const checkStartedRef = useRef(false);
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
 
   const originalPaneRef = useRef<HTMLDivElement>(null);
   const cleanedPaneRef = useRef<HTMLDivElement>(null);
@@ -174,6 +188,80 @@ export function TranscriptReviewClient({
     },
     [pushHistory]
   );
+
+  // Compare the words with the sermon and bulletin. It runs by itself when
+  // the page opens, on the transcript as it stands, and only suggests.
+  const runWordCheck = useCallback(async () => {
+    setCheckStatus("checking");
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paragraphs: blocksRef.current.map((b) => ({ id: b.id, text: b.text })),
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const data: {
+        suggestions: Omit<Spot, "key" | "state">[];
+      } = await res.json();
+      setSpots(
+        data.suggestions.map((s, i) => ({ ...s, key: `${i}-${s.paragraphId}`, state: "open" }))
+      );
+      setCheckStatus("done");
+    } catch {
+      setCheckStatus("error");
+    }
+  }, [workspaceId, videoId]);
+
+  useEffect(() => {
+    if (projectId || documentCount === 0 || checkStartedRef.current) return;
+    checkStartedRef.current = true;
+    void runWordCheck();
+  }, [projectId, documentCount, runWordCheck]);
+
+  const setSpotState = useCallback((key: string, state: Spot["state"]) => {
+    setSpots((prev) => prev.map((s) => (s.key === key ? { ...s, state } : s)));
+  }, []);
+
+  const focusBlock = useCallback((id: string) => {
+    const el = cleanedPaneRef.current?.querySelector<HTMLTextAreaElement>(
+      `[data-block-id="${id}"] textarea`
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.focus({ preventScroll: true });
+  }, []);
+
+  const handleUseSpot = useCallback(
+    (spot: Spot) => {
+      const block = blocksRef.current.find((b) => b.id === spot.paragraphId);
+      const next = block ? applySpot(block.text, spot.original, spot.suggestion) : null;
+      if (!block || next === null) {
+        // The words were already edited by hand; nothing left to swap.
+        setSpotState(spot.key, "gone");
+        return;
+      }
+      setBlocks((prev) => {
+        pushHistory(prev);
+        return prev.map((b) => (b.id === block.id ? { ...b, text: next } : b));
+      });
+      setSpotState(spot.key, "used");
+    },
+    [pushHistory, setSpotState]
+  );
+
+  const openSpotsByBlock = useMemo(() => {
+    const map = new Map<string, Spot[]>();
+    for (const s of spots) {
+      if (s.state !== "open") continue;
+      map.set(s.paragraphId, [...(map.get(s.paragraphId) ?? []), s]);
+    }
+    return map;
+  }, [spots]);
 
   // Auto-focus newly created blocks
   useEffect(() => {
@@ -392,6 +480,25 @@ export function TranscriptReviewClient({
         </div>
       )}
 
+      {!projectId && (
+        <WordCheckPanel
+          documentCount={documentCount}
+          documentsHref={
+            serviceStepHref(workspaceSlug, videoId, "documents", {
+              projectId,
+              canEdit: true,
+            })!
+          }
+          status={checkStatus}
+          spots={spots}
+          paragraphStart={(id) => blocks.find((b) => b.id === id)?.startMs ?? null}
+          onUse={handleUseSpot}
+          onKeep={(spot) => setSpotState(spot.key, "kept")}
+          onShow={(spot) => focusBlock(spot.paragraphId)}
+          onRetry={() => void runWordCheck()}
+        />
+      )}
+
       {/* Video embed */}
       {providerVideoId && (
         <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
@@ -467,6 +574,7 @@ export function TranscriptReviewClient({
               // pipeline to strip hymns by, so repetitive passages are
               // surfaced here for a human to remove rather than guessed at.
               const likelySung = looksSung(block.text);
+              const blockSpots = openSpotsByBlock.get(block.id) ?? [];
               return (
                 <div
                   key={block.id}
@@ -483,11 +591,16 @@ export function TranscriptReviewClient({
 
                   {/* Text area */}
                   <div className="flex-1 min-w-0">
-                    {(hasFlaggedContent || likelySung) && (
+                    {(hasFlaggedContent || likelySung || blockSpots.length > 0) && (
                       <div className="mb-0.5 flex flex-wrap items-center gap-x-2">
                         {hasFlaggedContent && (
                           <span className="text-[10px] text-amber-600 dark:text-amber-400">
                             ⚠ {flags.map((f) => `"${f}"`).join(", ")}
+                          </span>
+                        )}
+                        {blockSpots.length > 0 && (
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                            Check: {blockSpots.map((s) => `"${s.original}"`).join(", ")}
                           </span>
                         )}
                         {likelySung && (

@@ -1,6 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
 import mammoth from "mammoth";
-import { getOpenAIClient, MODEL } from "@/server/ai/openai";
+import { getOpenAIClient, MODEL, samplingParams } from "@/server/ai/openai";
 import type { DocumentFormat } from "@/lib/documents";
 
 /** Enough for a long sermon and a full bulletin, without bloating the row. */
@@ -26,7 +26,7 @@ async function readPhoto(bytes: ArrayBuffer, contentType: string): Promise<strin
   const base64 = Buffer.from(bytes).toString("base64");
   const response = await getOpenAIClient().chat.completions.create({
     model: MODEL,
-    temperature: 0,
+    ...samplingParams(0),
     messages: [
       {
         role: "user",

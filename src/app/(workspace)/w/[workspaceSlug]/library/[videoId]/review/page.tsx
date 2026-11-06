@@ -2,12 +2,13 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import {
   contentProjects,
+  serviceDocuments,
   sourceVideos,
   workspaceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, count, eq, desc } from "drizzle-orm";
 import { hasTranscriptSql } from "@/server/db/transcript-availability";
 import { notFound } from "next/navigation";
 import { TranscriptReviewClient } from "@/components/library/transcript-review-client";
@@ -122,6 +123,18 @@ export default async function TranscriptReviewPage({
       .orderBy(transcriptSegments.seq),
   ]);
 
+  // Documents with readable text feed the word check.
+  const [{ value: documentCount }] = await db
+    .select({ value: count() })
+    .from(serviceDocuments)
+    .where(
+      and(
+        eq(serviceDocuments.workspaceId, workspace.id),
+        eq(serviceDocuments.sourceVideoId, videoId),
+        eq(serviceDocuments.textStatus, "done")
+      )
+    );
+
   return (
     <TranscriptReviewClient
       workspaceId={workspace.id}
@@ -132,6 +145,7 @@ export default async function TranscriptReviewPage({
       providerVideoId={videoId}
       rawSegments={rawSegments}
       editableSegments={editableSegments}
+      documentCount={documentCount}
     />
   );
 }
