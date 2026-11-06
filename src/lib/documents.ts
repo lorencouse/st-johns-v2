@@ -12,8 +12,8 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   other: "Something else",
 };
 
-/** 20 MB: a long scanned bulletin, well under what a phone photo needs. */
-export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+/** 10 MB: enough for a long scanned bulletin or a phone photo. */
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 /** How many files one service can hold, so a slip of the finger can't flood it. */
 export const MAX_DOCUMENTS_PER_SERVICE = 10;
@@ -84,7 +84,7 @@ export function documentProblem(file: {
 }): string | null {
   if (file.size === 0) return "That file is empty.";
   if (file.size > MAX_DOCUMENT_BYTES) {
-    return "That file is too big. Files can be up to 20 MB.";
+    return "That file is too big. Files can be up to 10 MB.";
   }
   if (!documentFormat(file.type, file.name)) {
     return "We can read PDF, Word (.docx), plain text and photos (JPG, PNG, WebP or GIF).";

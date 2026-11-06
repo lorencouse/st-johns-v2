@@ -38,11 +38,17 @@ describe("documentProblem", () => {
     expect(documentProblem({ name: "a.pdf", type: "application/pdf", size: 1000 })).toBeNull();
   });
 
+  test("accepts a file just under 10 MB", () => {
+    expect(
+      documentProblem({ name: "a.pdf", type: "application/pdf", size: 10 * 1024 * 1024 - 1 })
+    ).toBeNull();
+  });
+
   test("explains empty, oversized and unreadable files", () => {
     expect(documentProblem({ name: "a.pdf", type: "application/pdf", size: 0 })).toContain("empty");
     expect(
-      documentProblem({ name: "a.pdf", type: "application/pdf", size: 21 * 1024 * 1024 })
-    ).toContain("20 MB");
+      documentProblem({ name: "a.pdf", type: "application/pdf", size: 11 * 1024 * 1024 })
+    ).toContain("10 MB");
     expect(documentProblem({ name: "a.zip", type: "application/zip", size: 10 })).toContain(
       "PDF"
     );
