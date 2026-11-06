@@ -179,7 +179,7 @@ export function StudioClient({
     const doc = editorRef.current?.state.doc;
     if (doc) {
       textblocksOf(doc).forEach(({ node }, index) => {
-        paragraphs.push({ id: `b${index}`, text: node.textContent });
+        paragraphs.push({ id: `b${index}`, text: node.textBetween(0, node.content.size, "\n", "\n") });
       });
     }
     try {

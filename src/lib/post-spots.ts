@@ -24,11 +24,14 @@ export function locateText(
   let offset = 0;
   let from: number | null = null;
   let to: number | null = null;
+  let prevEnd: number | null = null;
   for (const run of runs) {
     const runEnd = offset + run.text.length;
+    if (from !== null && prevEnd !== run.pos) return null;
     if (from === null && start < runEnd) from = run.pos + (start - offset);
     if (to === null && end <= runEnd) to = run.pos + (end - offset);
     offset = runEnd;
+    prevEnd = run.pos + run.text.length;
     if (from !== null && to !== null) break;
   }
   return from !== null && to !== null ? { from, to } : null;

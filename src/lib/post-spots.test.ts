@@ -26,6 +26,16 @@ describe("locateText", () => {
     expect(locateText(runs, "four twenty")).toEqual({ from: 7, to: 18 });
   });
 
+  test("refuses a phrase that crosses a gap, such as a line break", () => {
+    // "Hymn 420" then a hard break at 9, then "Father Mikel" at 10.
+    const runs = [
+      { text: "Hymn 420", pos: 1 },
+      { text: "Father Mikel", pos: 10 },
+    ];
+    expect(locateText(runs, "420Father")).toBeNull();
+    expect(locateText(runs, "Father")).toEqual({ from: 10, to: 16 });
+  });
+
   test("returns null when the words are gone", () => {
     expect(locateText([{ text: "Isaiah 40", pos: 1 }], "Isiah")).toBeNull();
     expect(locateText([], "Isiah")).toBeNull();
