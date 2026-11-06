@@ -126,24 +126,37 @@ export async function POST(req: NextRequest, { params }: Params) {
     console.error("[documents] text extraction failed", err);
   }
 
-  try {
-    const [saved] = await db
-      .insert(serviceDocuments)
-      .values({
-        id,
-        workspaceId,
-        sourceVideoId: videoId,
-        kind,
-        fileName: file.name.slice(0, 255),
-        contentType,
-        sizeBytes: file.size,
-        storageKey,
-        textStatus: extractedText ? "done" : "failed",
-        extractedText,
-        uploadedByUserId: ctx.userId,
-      })
-      .returning(documentSummary);
+  const saved = await db
+    .insert(serviceDocuments)
+    .values({
+      id,
+      workspaceId,
+      sourceVideoId: videoId,
+      kind,
+      fileName: file.name.slice(0, 255),
+      contentType,
+      sizeBytes: file.size,
+      storageKey,
+      textStatus: extractedText ? "done" : "failed",
+      extractedText,
+      uploadedByUserId: ctx.userId,
+    })
+    .returning(documentSummary)
+    .then(([row]) => row)
+    .catch((err) => {
+      console.error("[documents] saving the record failed", err);
+      return null;
+    });
+  if (!saved) {
+    // Don't leave an orphaned file in storage when the record didn't save.
+    await deleteObject(storageKey).catch(() => {});
+    return NextResponse.json(
+      { error: "We couldn't save that file. Try again in a moment." },
+      { status: 500 }
+    );
+  }
 
+  try {
     await db.insert(auditEvents).values({
       workspaceId,
       actorUserId: ctx.userId,
@@ -152,15 +165,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       entityId: id,
       summary: `Added ${kind} document "${saved.fileName}"`,
     });
-
-    return NextResponse.json({ document: saved }, { status: 201 });
   } catch (err) {
-    // Don't leave an orphaned file in storage when the record didn't save.
-    await deleteObject(storageKey).catch(() => {});
-    console.error("[documents] saving the record failed", err);
-    return NextResponse.json(
-      { error: "We couldn't save that file. Try again in a moment." },
-      { status: 500 }
-    );
+    console.error("[documents] audit event failed", err);
   }
+
+  return NextResponse.json({ document: saved }, { status: 201 });
 }
