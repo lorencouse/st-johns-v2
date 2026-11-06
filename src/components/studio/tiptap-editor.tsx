@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useRef } from "react";
@@ -13,12 +13,15 @@ interface TiptapEditorProps {
   content: Record<string, unknown>;
   onUpdate?: (json: Record<string, unknown>, text: string) => void;
   editable?: boolean;
+  /** Hands the editor to the parent, for changes made from outside it. */
+  onReady?: (editor: Editor | null) => void;
 }
 
 export function TiptapEditor({
   content,
   onUpdate,
   editable = true,
+  onReady,
 }: TiptapEditorProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,6 +62,11 @@ export function TiptapEditor({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    onReady?.(editor);
+    return () => onReady?.(null);
+  }, [editor, onReady]);
 
   // Update content when prop changes (e.g., switching draft versions)
   useEffect(() => {
