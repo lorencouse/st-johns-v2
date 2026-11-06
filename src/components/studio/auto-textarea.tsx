@@ -12,12 +12,15 @@ export function AutoTextarea({
   readOnly,
   placeholder,
   className = "",
+  fieldId,
 }: {
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
   placeholder?: string;
   className?: string;
+  /** Lets other parts of the page find and focus this field. */
+  fieldId?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -36,6 +39,7 @@ export function AutoTextarea({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       rows={1}
+      data-post-field={fieldId}
       className={`w-full resize-none bg-transparent text-sm leading-relaxed outline-none read-only:cursor-default rounded-sm focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${className}`}
     />
   );

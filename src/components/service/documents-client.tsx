@@ -226,8 +226,9 @@ export function DocumentsClient({
             Add the sermon and bulletin
           </h1>
           <p className="text-pretty text-zinc-600 dark:text-zinc-300">
-            Optional, but it helps the post get names, Bible verses and hymn
-            titles right. These files are never published.
+            {projectId
+              ? "The post is already written. Add the files here, then go back to the post and press Check against the documents to fix names, Bible verses and hymn titles. These files are never published."
+              : "Optional, but it helps the post get names, Bible verses and hymn titles right. These files are never published."}
           </p>
           <p className="truncate text-sm text-zinc-500">{videoTitle}</p>
         </div>

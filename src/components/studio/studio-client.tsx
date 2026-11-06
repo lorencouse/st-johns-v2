@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TiptapEditor } from "./tiptap-editor";
@@ -14,6 +15,33 @@ import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 import { postStatusLabel } from "@/lib/status-labels";
 import { ServiceSteps } from "@/components/service/service-steps";
+import {
+  WordCheckPanel,
+  type Spot,
+  type WordCheckStatus,
+} from "@/components/service/word-check-panel";
+import { serviceStepHref } from "@/lib/service-steps";
+import { applySpot } from "@/lib/word-spots";
+import {
+  blockIndexFromId,
+  isPostField,
+  changedPart,
+  locateText,
+  type TextRun,
+} from "@/lib/post-spots";
+
+type DocNode = Editor["state"]["doc"];
+
+/** Paragraphs and headings in document order, including those in lists and quotes. */
+function textblocksOf(doc: DocNode): Array<{ node: DocNode; pos: number }> {
+  const blocks: Array<{ node: DocNode; pos: number }> = [];
+  doc.descendants((node, pos) => {
+    if (!node.isTextblock) return true;
+    blocks.push({ node, pos });
+    return false;
+  });
+  return blocks;
+}
 
 interface StudioClientProps {
   workspaceId: string;
@@ -40,6 +68,8 @@ interface StudioClientProps {
     text: string;
   }>;
   userRole: string;
+  /** Uploaded documents whose text could be read. */
+  documentCount: number;
 }
 
 export function StudioClient({
@@ -54,6 +84,7 @@ export function StudioClient({
   draft,
   transcriptSegments,
   userRole,
+  documentCount,
 }: StudioClientProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -123,6 +154,136 @@ export function StudioClient({
       }, 800);
     },
     [patchDraft]
+  );
+
+  // --- Check against the documents ---
+  // Works on a post that already exists, so documents added after the post
+  // was written still help. It only suggests; each fix is the person's call.
+  const editorRef = useRef<Editor | null>(null);
+  const handleEditorReady = useCallback((editor: Editor | null) => {
+    editorRef.current = editor;
+  }, []);
+  const [spots, setSpots] = useState<Spot[]>([]);
+  const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("idle");
+  const fieldsRef = useRef({ title, intro, summary });
+  useEffect(() => {
+    fieldsRef.current = { title, intro, summary };
+  }, [title, intro, summary]);
+
+  const runPostCheck = useCallback(async () => {
+    setCheckStatus("checking");
+    const paragraphs: Array<{ id: string; text: string }> = [
+      { id: "title", text: fieldsRef.current.title },
+      { id: "intro", text: fieldsRef.current.intro },
+      { id: "summary", text: fieldsRef.current.summary },
+    ];
+    const doc = editorRef.current?.state.doc;
+    if (doc) {
+      textblocksOf(doc).forEach(({ node }, index) => {
+        paragraphs.push({ id: `b${index}`, text: node.textBetween(0, node.content.size, "\n", "\n") });
+      });
+    }
+    try {
+      const res = await fetch(
+        `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paragraphs: paragraphs.filter((p) => p.text.trim()) }),
+        }
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const data: { suggestions: Omit<Spot, "key" | "state">[] } = await res.json();
+      setSpots(
+        data.suggestions.map((s, i) => ({ ...s, key: `${i}-${s.paragraphId}`, state: "open" }))
+      );
+      setCheckStatus("done");
+    } catch {
+      setCheckStatus("error");
+    }
+  }, [workspaceId, videoId]);
+
+  const setSpotState = useCallback((key: string, state: Spot["state"]) => {
+    setSpots((prev) => prev.map((s) => (s.key === key ? { ...s, state } : s)));
+  }, []);
+
+  /** Where a spot's words are in the editor now, or null if they are gone. */
+  const findInEditor = useCallback((spot: Spot) => {
+    const editor = editorRef.current;
+    const index = blockIndexFromId(spot.paragraphId);
+    if (!editor || index === null) return null;
+    const blocks = textblocksOf(editor.state.doc);
+    const runsOf = ({ node, pos }: (typeof blocks)[number]): TextRun[] => {
+      const runs: TextRun[] = [];
+      node.descendants((child, childPos) => {
+        if (child.isText && child.text) runs.push({ text: child.text, pos: pos + 1 + childPos });
+      });
+      return runs;
+    };
+    // The block it was found in first, then any other block, in case
+    // paragraphs were added or removed since the check ran.
+    const home = blocks[index];
+    const found = home ? locateText(runsOf(home), spot.original) : null;
+    if (found) return found;
+    for (const block of blocks) {
+      const range = locateText(runsOf(block), spot.original);
+      if (range) return range;
+    }
+    return null;
+  }, []);
+
+  const handleUseSpot = useCallback(
+    (spot: Spot) => {
+      if (isPostField(spot.paragraphId)) {
+        const field = spot.paragraphId;
+        const next = applySpot(fieldsRef.current[field], spot.original, spot.suggestion);
+        if (next === null) return setSpotState(spot.key, "gone");
+        if (field === "title") setTitle(next);
+        if (field === "intro") setIntro(next);
+        if (field === "summary") setSummary(next);
+        // Saved straight away: a debounced save would be cancelled by the
+        // next fix to a different field.
+        if (fieldDebounceRef.current) {
+          clearTimeout(fieldDebounceRef.current);
+          fieldDebounceRef.current = null;
+          void patchDraft({ ...fieldsRef.current, [field]: next });
+        } else {
+          void patchDraft({ [field]: next });
+        }
+        return setSpotState(spot.key, "used");
+      }
+      const editor = editorRef.current;
+      const range = findInEditor(spot);
+      if (!editor || !range) return setSpotState(spot.key, "gone");
+      // Only the differing middle is swapped, so unchanged words keep their
+      // own formatting. locateText only returns unbroken ranges, so offsets
+      // in the phrase map straight onto document positions. A plain text
+      // swap goes through the editor's normal autosave and undo.
+      const change = changedPart(spot.original, spot.suggestion);
+      if (change) {
+        editor.view.dispatch(
+          editor.state.tr.insertText(change.text, range.from + change.start, range.from + change.end)
+        );
+      }
+      setSpotState(spot.key, "used");
+    },
+    [findInEditor, patchDraft, setSpotState]
+  );
+
+  const handleShowSpot = useCallback(
+    (spot: Spot) => {
+      if (isPostField(spot.paragraphId)) {
+        const el = document.querySelector<HTMLElement>(`[data-post-field="${spot.paragraphId}"]`);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        el?.focus({ preventScroll: true });
+        return;
+      }
+      const editor = editorRef.current;
+      const range = findInEditor(spot);
+      if (!editor || !range) return setSpotState(spot.key, "gone");
+      editor.chain().focus().setTextSelection(range).scrollIntoView().run();
+    },
+    [findInEditor, setSpotState]
   );
 
   const handleEditorUpdate = useCallback(
@@ -249,10 +410,32 @@ export function StudioClient({
       {/* Center - editor */}
       <div className="order-1 min-w-0 flex-1 p-4 sm:p-6 lg:order-none lg:overflow-y-auto">
         <div className="mx-auto max-w-3xl">
+          {draft && fieldsEditable && (
+            <WordCheckPanel
+              documentCount={documentCount}
+              documentsHref={
+                serviceStepHref(workspaceSlug, videoId, "documents", {
+                  projectId,
+                  canEdit: true,
+                })!
+              }
+              status={checkStatus}
+              spots={spots}
+              paragraphStart={() => null}
+              onUse={handleUseSpot}
+              onKeep={(spot) => setSpotState(spot.key, "kept")}
+              onShow={handleShowSpot}
+              onRetry={() => void runPostCheck()}
+              subject="this post"
+              allDoneMessage="All checked. The post matches your documents."
+              className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/10"
+            />
+          )}
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             {draft ? (
               <input
                 value={title}
+                data-post-field="title"
                 readOnly={!fieldsEditable}
                 onChange={(e) => {
                   setTitle(e.target.value);
@@ -290,6 +473,7 @@ export function StudioClient({
                 </h3>
                 <AutoTextarea
                   value={intro}
+                  fieldId="intro"
                   readOnly={!fieldsEditable}
                   placeholder="Introduce the post for readers..."
                   className="mt-1"
@@ -307,6 +491,7 @@ export function StudioClient({
                 </h3>
                 <AutoTextarea
                   value={summary}
+                  fieldId="summary"
                   readOnly={!fieldsEditable}
                   placeholder="Summarize the key points..."
                   className="mt-1"
@@ -335,6 +520,7 @@ export function StudioClient({
               <TiptapEditor
                 content={draft.contentJson}
                 onUpdate={canEdit ? handleEditorUpdate : undefined}
+                onReady={handleEditorReady}
                 editable={fieldsEditable}
               />
             </div>

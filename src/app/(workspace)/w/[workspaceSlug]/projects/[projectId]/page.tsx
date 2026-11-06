@@ -3,11 +3,12 @@ import { db } from "@/server/db";
 import {
   contentProjects,
   draftVersions,
+  serviceDocuments,
   sourceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, count, eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { StudioClient } from "@/components/studio/studio-client";
 
@@ -112,6 +113,18 @@ export default async function StudioPage({
     segments = rows;
   }
 
+  // Documents with readable text, for checking the post against them.
+  const [{ value: documentCount }] = await db
+    .select({ value: count() })
+    .from(serviceDocuments)
+    .where(
+      and(
+        eq(serviceDocuments.workspaceId, workspace.id),
+        eq(serviceDocuments.sourceVideoId, result.videoId),
+        eq(serviceDocuments.textStatus, "done")
+      )
+    );
+
   return (
     <StudioClient
       workspaceId={workspace.id}
@@ -125,6 +138,7 @@ export default async function StudioPage({
       draft={draft}
       transcriptSegments={segments}
       userRole={role}
+      documentCount={documentCount}
     />
   );
 }

@@ -15,7 +15,8 @@ export interface Spot {
   state: SpotState;
 }
 
-export type WordCheckStatus = "checking" | "done" | "error";
+/** "idle" means not run yet: the post editor runs the check only when asked. */
+export type WordCheckStatus = "idle" | "checking" | "done" | "error";
 
 interface WordCheckPanelProps {
   documentCount: number;
@@ -27,7 +28,14 @@ interface WordCheckPanelProps {
   onUse: (spot: Spot) => void;
   onKeep: (spot: Spot) => void;
   onShow: (spot: Spot) => void;
+  /** Runs the check: the start button when idle, and Try again after an error. */
   onRetry: () => void;
+  /** Shown once every spot is dealt with. */
+  allDoneMessage?: string;
+  /** What the check compares, for the idle prompt. */
+  subject?: string;
+  /** Wrapper styling, so the panel can sit in a page edge or inside a column. */
+  className?: string;
 }
 
 /**
@@ -45,10 +53,13 @@ export function WordCheckPanel({
   onKeep,
   onShow,
   onRetry,
+  allDoneMessage = "All checked. You can write the post now.",
+  subject = "the words",
+  className = "border-b border-zinc-200 bg-blue-50/40 px-4 py-3 dark:border-zinc-800 dark:bg-blue-950/10",
 }: WordCheckPanelProps) {
   if (documentCount === 0) {
     return (
-      <div className="border-b border-zinc-200 px-4 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+      <div className={`${className} text-sm text-zinc-600 dark:text-zinc-300`}>
         <span className="text-pretty">
           Add the sermon or bulletin and we&apos;ll check names, Bible verses
           and hymn titles for you.{" "}
@@ -64,10 +75,7 @@ export function WordCheckPanel({
   const done = spots.length - open.length;
 
   return (
-    <section
-      aria-labelledby="spots-heading"
-      className="border-b border-zinc-200 bg-blue-50/40 px-4 py-3 dark:border-zinc-800 dark:bg-blue-950/10"
-    >
+    <section aria-labelledby="spots-heading" className={className}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="spots-heading" className="flex items-center gap-2 text-sm font-semibold">
           <FileSearch className="h-4 w-4 text-blue-600" aria-hidden="true" />
@@ -91,10 +99,27 @@ export function WordCheckPanel({
       </div>
 
       <div aria-live="polite" className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+        {status === "idle" && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-pretty">
+              Compare {subject} with your{" "}
+              {documentCount === 1 ? "document" : `${documentCount} documents`} to
+              catch misspelled names, Bible verses and hymn titles.
+            </p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 sm:min-h-9"
+            >
+              <FileSearch className="h-4 w-4" aria-hidden="true" />
+              Check against the documents
+            </button>
+          </div>
+        )}
         {status === "checking" && (
           <p className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-600" aria-hidden="true" />
-            Comparing the words with your{" "}
+            Comparing {subject} with your{" "}
             {documentCount === 1 ? "document" : `${documentCount} documents`}...
           </p>
         )}
@@ -110,7 +135,7 @@ export function WordCheckPanel({
         {status === "done" && spots.length > 0 && open.length === 0 && (
           <p className="flex items-center gap-2">
             <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-            All checked. You can write the post now.
+            {allDoneMessage}
           </p>
         )}
       </div>
