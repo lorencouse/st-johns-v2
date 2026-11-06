@@ -74,7 +74,7 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase text-zinc-400">
+      <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
         Exports ({artifacts.length})
       </h3>
       {artifacts.map((artifact) => (
@@ -84,7 +84,7 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
         >
           <div>
             <span className="font-medium">{artifact.fileName}</span>
-            <span className="ml-2 text-xs text-zinc-400">
+            <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
               {new Date(artifact.createdAt).toLocaleDateString()}
             </span>
           </div>

@@ -129,13 +129,13 @@ export function CommentPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-400">
+        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
           Comments ({openThreads.length})
         </h3>
         {resolvedThreads.length > 0 && (
           <button
             onClick={() => setShowResolved(!showResolved)}
-            className="text-xs text-zinc-400 hover:text-zinc-600"
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-600"
           >
             {showResolved ? "Hide resolved" : `+${resolvedThreads.length} resolved`}
           </button>
@@ -179,7 +179,7 @@ export function CommentPanel({
                   <span className="font-medium text-xs">
                     {c.userName || "User"}
                   </span>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {new Date(c.createdAt).toLocaleDateString()}
                   </span>
                 </div>
@@ -211,7 +211,7 @@ export function CommentPanel({
                           setReplyingTo(null);
                           setReplyText("");
                         }}
-                        className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-600"
+                        className="rounded px-2 py-0.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-600"
                       >
                         Cancel
                       </button>
@@ -221,7 +221,7 @@ export function CommentPanel({
                   <>
                     <button
                       onClick={() => setReplyingTo(thread.id)}
-                      className="text-xs text-zinc-400 hover:text-zinc-600"
+                      className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-600"
                     >
                       Reply
                     </button>

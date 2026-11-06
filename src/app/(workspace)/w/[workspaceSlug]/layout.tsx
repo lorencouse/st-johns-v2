@@ -13,7 +13,7 @@ export default async function WorkspaceLayout({
   const { workspace, session } = await requireWorkspaceMember(workspaceSlug);
 
   return (
-    <div className="flex h-screen flex-col md:flex-row">
+    <div className="flex h-dvh flex-col md:flex-row">
       {/* Sidebar */}
       <aside className="flex shrink-0 flex-wrap items-center border-b border-zinc-200 md:w-60 md:flex-col md:flex-nowrap md:items-stretch md:border-r md:border-b-0 dark:border-zinc-800">
         <div className="min-w-0 flex-1 p-3 md:flex-none md:border-b md:border-zinc-200 md:p-4 md:dark:border-zinc-800">

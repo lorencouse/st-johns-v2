@@ -44,7 +44,7 @@ export default async function AuditPage({
                   </span>{" "}
                   {event.summary || event.eventKey}
                 </p>
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {event.createdAt
                     ? new Date(event.createdAt).toLocaleString()
                     : "—"}

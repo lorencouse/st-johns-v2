@@ -134,7 +134,7 @@ export function WordCheckPanel({
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 line-through decoration-amber-600/60 dark:bg-amber-900/40">
                       {spot.original}
                     </span>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-zinc-400" aria-hidden="true" />
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                     <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-medium dark:bg-emerald-900/40">
                       {spot.suggestion}
                     </span>

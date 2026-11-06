@@ -36,7 +36,7 @@ export function AutoTextarea({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       rows={1}
-      className={`w-full resize-none bg-transparent text-sm leading-relaxed outline-none read-only:cursor-default ${className}`}
+      className={`w-full resize-none bg-transparent text-sm leading-relaxed outline-none read-only:cursor-default rounded-sm focus-visible:ring-2 focus-visible:ring-blue-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${className}`}
     />
   );
 }

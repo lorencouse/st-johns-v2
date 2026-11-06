@@ -28,7 +28,7 @@ export function VideoActions({
   size = "default",
 }: VideoActionsProps) {
   if (isScheduled) {
-    return <span className="whitespace-nowrap text-xs text-zinc-400">Not aired yet</span>;
+    return <span className="whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">Not aired yet</span>;
   }
 
   const progress = {

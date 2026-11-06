@@ -39,7 +39,7 @@ export function TiptapEditor({
     editorProps: {
       attributes: {
         class:
-          "prose dark:prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[200px]",
+          "prose dark:prose-invert prose-base max-w-none focus:outline-none min-h-[200px]",
       },
     },
     onUpdate: ({ editor }) => {
@@ -71,16 +71,16 @@ export function TiptapEditor({
   if (!editor) return null;
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700">
+    <div className="rounded-lg border border-zinc-200 focus-within:ring-2 focus-within:ring-blue-500/40 dark:border-zinc-700">
       {editable && (
-        <div className="flex items-center gap-1 border-b border-zinc-200 px-2 py-1 dark:border-zinc-700">
+        <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-1 border-b border-zinc-200 px-2 py-1 dark:border-zinc-700">
           <ToolbarButton
             active={editor.isActive("heading", { level: 2 })}
             onClick={() =>
               editor.chain().focus().toggleHeading({ level: 2 }).run()
             }
           >
-            H2
+            Heading
           </ToolbarButton>
           <ToolbarButton
             active={editor.isActive("heading", { level: 3 })}
@@ -88,22 +88,22 @@ export function TiptapEditor({
               editor.chain().focus().toggleHeading({ level: 3 }).run()
             }
           >
-            H3
+            Small heading
           </ToolbarButton>
-          <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+          <div aria-hidden="true" className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
           <ToolbarButton
             active={editor.isActive("bold")}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
-            B
+            Bold
           </ToolbarButton>
           <ToolbarButton
             active={editor.isActive("italic")}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
-            I
+            Italic
           </ToolbarButton>
-          <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+          <div aria-hidden="true" className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
           <ToolbarButton
             active={false}
             onClick={() => editor.chain().focus().undo().run()}
@@ -138,6 +138,7 @@ function ToolbarButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
         active
           ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"

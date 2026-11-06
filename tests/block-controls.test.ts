@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { BlockControls } from "@/components/library/block-controls";
 
-type ButtonProps = { title: string; onClick: () => void };
+type ButtonProps = { title: string; "aria-label": string; onClick: () => void };
 
 function buttons(node: ReactNode): ButtonProps[] {
   if (Array.isArray(node)) return node.flatMap(buttons);
@@ -21,20 +21,20 @@ describe("transcript block controls", () => {
       onInsertBelow: mock(() => {}),
     };
     const expected: Record<string, keyof typeof actions> = {
-      "Delete block": "onDelete",
-      "Mark as start": "onMarkStart",
-      "Mark as end": "onMarkEnd",
-      "Add block below": "onInsertBelow",
+      "Delete this paragraph": "onDelete",
+      "Start the post here": "onMarkStart",
+      "End the post here": "onMarkEnd",
+      "Add a paragraph below": "onInsertBelow",
     };
 
     const rendered = buttons(BlockControls({ startMs: 0, ...actions }));
-    expect(rendered.map((b) => b.title).sort()).toEqual(Object.keys(expected).sort());
+    expect(rendered.map((b) => b["aria-label"]).sort()).toEqual(Object.keys(expected).sort());
 
     for (const button of rendered) {
       for (const fn of Object.values(actions)) fn.mockClear();
       button.onClick();
       for (const [name, fn] of Object.entries(actions)) {
-        expect(fn).toHaveBeenCalledTimes(name === expected[button.title] ? 1 : 0);
+        expect(fn).toHaveBeenCalledTimes(name === expected[button["aria-label"]] ? 1 : 0);
       }
     }
   });
