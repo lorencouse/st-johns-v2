@@ -1,5 +1,6 @@
-import { getOpenAIClient, MODEL } from "./openai";
+import { getOpenAIClient, MODEL, samplingParams } from "./openai";
 import { formatTimestamp, withRetries, type Paragraph } from "./cleanup";
+import { withReference } from "@/server/documents/reference-text";
 
 /**
  * One section of the finished post: a heading, the paragraph it starts at,
@@ -188,7 +189,8 @@ export function cleanTitle(raw: unknown): string | null {
  * unsectioned draft, which is exactly what it produced before this step existed.
  */
 export async function generateStructure(
-  paragraphs: Paragraph[]
+  paragraphs: Paragraph[],
+  reference: string | null = null
 ): Promise<StructureResult> {
   const empty: StructureResult = {
     title: null,
@@ -218,10 +220,10 @@ export async function generateStructure(
         openai.chat.completions.create({
           model: MODEL,
           messages: [
-            { role: "system", content: STRUCTURE_PROMPT },
+            { role: "system", content: withReference(STRUCTURE_PROMPT, reference) },
             { role: "user", content: outline },
           ],
-          temperature: 0.2,
+          ...samplingParams(0.2),
           response_format: { type: "json_object" },
         }),
       3,
