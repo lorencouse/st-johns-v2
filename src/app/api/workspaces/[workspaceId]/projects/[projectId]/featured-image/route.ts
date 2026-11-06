@@ -42,10 +42,11 @@ export async function GET(
   for (const size of SIZES) {
     const res = await fetch(
       `https://i.ytimg.com/vi/${project.videoId}/${size}.jpg`,
-      { cache: "no-store" }
+      { cache: "no-store", signal: AbortSignal.timeout(8000) }
     ).catch(() => null);
     if (!res?.ok) continue;
-    const bytes = await res.arrayBuffer();
+    const bytes = await res.arrayBuffer().catch(() => null);
+    if (!bytes) continue;
     return new NextResponse(bytes, {
       headers: {
         "Content-Type": "image/jpeg",

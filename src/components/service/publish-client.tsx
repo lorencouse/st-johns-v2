@@ -12,6 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { htmlToPlainText, writeRichHtml } from "@/lib/clipboard";
+import { imageFileName } from "@/lib/published-url";
 import { ServiceSteps } from "./service-steps";
 
 interface PublishClientProps {
@@ -98,6 +99,36 @@ export function PublishClient({
       tick("body", "Copied. Click into the post's text area in Squarespace and paste.");
     } catch {
       setError("Your browser blocked copying. Try the raw HTML option below.");
+    }
+  }
+
+  async function downloadImage() {
+    setError("");
+    try {
+      const res = await fetch(`${api}/featured-image`, {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "We couldn't get the image. Try again.");
+        return;
+      }
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) {
+        setError("We couldn't get the image. Try again.");
+        return;
+      }
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = imageFileName(title);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+      tick("image", "Image downloaded. Upload it as the featured image.");
+    } catch {
+      setError("We couldn't get the image. Check your connection and try again.");
     }
   }
 
@@ -246,15 +277,14 @@ export function PublishClient({
       finished: !!done.image && !!done.alt,
       action: (
         <div className="flex flex-wrap gap-2">
-          <a
-            href={`${api}/featured-image`}
-            download
-            onClick={() => tick("image", "Image downloaded. Upload it as the featured image.")}
+          <button
+            type="button"
+            onClick={() => void downloadImage()}
             className={done.image ? doneStyle : secondary}
           >
             {done.image ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
             {done.image ? "Downloaded" : "Download image"}
-          </a>
+          </button>
           <button
             type="button"
             onClick={() => void copyText("alt", altText)}

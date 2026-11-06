@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { requireApiWorkspaceMember } from "@/lib/api-helpers";
 import { parsePublishedUrl } from "@/lib/published-url";
 import { db } from "@/server/db";
@@ -50,22 +50,30 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   const now = new Date();
-  await db
+  const [saved] = await db
     .update(contentProjects)
-    .set({ publishedAt: now, publishedUrl: parsed.url, updatedAt: now })
-    .where(eq(contentProjects.id, projectId));
+    .set({
+      publishedAt: sql`coalesce(${contentProjects.publishedAt}, ${now.toISOString()}::timestamptz)`,
+      publishedUrl: parsed.url,
+      updatedAt: now,
+    })
+    .where(eq(contentProjects.id, projectId))
+    .returning({ publishedAt: contentProjects.publishedAt });
+  const publishedAt = saved?.publishedAt ?? now;
 
-  await db.insert(auditEvents).values({
-    workspaceId,
-    actorUserId: ctx.userId,
-    eventKey: "post.published",
-    entityType: "content_project",
-    entityId: projectId,
-    summary: `Marked "${project.title}" as published`,
-  });
+  if (publishedAt.getTime() === now.getTime()) {
+    await db.insert(auditEvents).values({
+      workspaceId,
+      actorUserId: ctx.userId,
+      eventKey: "post.published",
+      entityType: "content_project",
+      entityId: projectId,
+      summary: `Marked "${project.title}" as published`,
+    });
+  }
 
   return NextResponse.json({
-    publishedAt: now.toISOString(),
+    publishedAt: publishedAt.toISOString(),
     publishedUrl: parsed.url,
   });
 }
