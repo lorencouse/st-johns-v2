@@ -102,8 +102,8 @@ function buildChecklist(
       title: "Ask someone to approve a post",
       description: "Optional: have someone read a post over before it goes on your website.",
       done: stats.hasReviewActivity,
-      actionLabel: "Open approvals",
-      href: "review",
+      actionLabel: "Show posts waiting for approval",
+      filter: "review_queue" as const,
     },
   ];
 }
@@ -234,63 +234,26 @@ export function LibraryDashboard({
         </section>
       )}
 
+      <header className="mb-6">
+        <p className="text-sm font-medium text-zinc-500">{workspaceName}</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance">
+          Services
+        </h1>
+        <p className="mt-2 max-w-xl text-pretty text-zinc-600 dark:text-zinc-300">
+          Pick a service and follow the steps to turn it into a blog post for
+          your website.
+        </p>
+      </header>
+
       {latestService && (
         <div className="mb-6">
           <LatestServiceCard
-            workspaceId={workspaceId}
             workspaceSlug={workspaceSlug}
             video={latestService}
           />
         </div>
       )}
 
-      <section className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-[radial-gradient(circle_at_top_left,_rgba(29,78,216,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(244,244,245,0.96))] p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.15),_transparent_30%),linear-gradient(135deg,_rgba(9,9,11,0.98),_rgba(24,24,27,0.96))]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-400">
-              {workspaceName}
-            </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              Services
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              Pick a service, check its captions, then turn it into a blog post
-              for your website.
-            </p>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              label="Videos"
-              value={stats.totalVideos}
-              detail={`${channelCount} synced channel${channelCount === 1 ? "" : "s"}`}
-              active={activeFilter === "all"}
-              onClick={() => setFilter("all")}
-            />
-            <SummaryCard
-              label="Ready for a post"
-              value={stats.readyToDraft}
-              detail="Captions ready, no post yet"
-              active={activeFilter === "ready_to_draft"}
-              onClick={() => setFilter("ready_to_draft")}
-            />
-            <SummaryCard
-              label="Waiting for approval"
-              value={stats.reviewQueue}
-              detail="Waiting for approval or changes"
-              active={activeFilter === "review_queue"}
-              onClick={() => setFilter("review_queue")}
-            />
-            <SummaryCard
-              label="Approved"
-              value={stats.approved}
-              detail="Ready to publish"
-              active={activeFilter === "approved"}
-              onClick={() => setFilter("approved")}
-            />
-          </div>
-        </div>
-      </section>
 
       <section className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
         <div className="min-w-0 rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
@@ -386,9 +349,9 @@ export function LibraryDashboard({
                   <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900">
                     <tr>
                       <th className="px-4 py-3 font-medium">Video</th>
-                      <th className="px-4 py-3 font-medium">Channel</th>
-                      <th className="px-4 py-3 font-medium">Date</th>
-                      <th className="px-4 py-3 font-medium">Captions</th>
+                      <th className="hidden px-4 py-3 font-medium md:table-cell">Channel</th>
+                      <th className="hidden px-4 py-3 font-medium md:table-cell">Date</th>
+                      <th className="hidden px-4 py-3 font-medium md:table-cell">Captions</th>
                       <th className="px-4 py-3 font-medium">Post</th>
                       <th className="px-4 py-3 font-medium">Next step</th>
                     </tr>
@@ -397,7 +360,6 @@ export function LibraryDashboard({
                     {videos.map((video) => (
                       <VideoRow
                         key={video.id}
-                        workspaceId={workspaceId}
                         workspaceSlug={workspaceSlug}
                         video={{
                           id: video.id,
@@ -430,16 +392,20 @@ export function LibraryDashboard({
         </div>
 
         <div className="min-w-0 space-y-6">
-          <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-start justify-between gap-4">
+          <details className="group rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold">Playlists</h2>
                 <p className="mt-1 text-sm text-zinc-500">
                   Your channel&apos;s playlists, brought in from YouTube.
                 </p>
               </div>
-              <p className="text-2xl font-semibold tabular-nums">{playlists.length}</p>
-            </div>
+              <span className="whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">
+                <span className="tabular-nums">{playlists.length}</span>
+                <span className="group-open:hidden"> · Show</span>
+                <span className="hidden group-open:inline"> · Hide</span>
+              </span>
+            </summary>
             {playlists.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50">
                 Playlists will appear here as soon as a channel is connected.
@@ -473,8 +439,9 @@ export function LibraryDashboard({
                 ))}
               </div>
             )}
-          </div>
+          </details>
 
+          {completionPercent < 100 && (
           <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -545,64 +512,10 @@ export function LibraryDashboard({
                 </div>
               ))}
             </div>
-
-            <div className="mt-5 rounded-2xl bg-zinc-950 p-4 text-zinc-100 dark:bg-zinc-900">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                At a glance
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <SignalStat label="Captions ready" value={stats.captionsReady} />
-                <SignalStat label="In progress" value={stats.drafting} />
-                <SignalStat label="Awaiting approval" value={stats.reviewQueue} />
-                <SignalStat label="Approved" value={stats.approved} />
-              </div>
-            </div>
           </div>
+          )}
         </div>
       </section>
-    </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  detail,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  detail: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-w-0 whitespace-normal rounded-2xl border px-4 py-3 text-left transition ${
-        active
-          ? "border-blue-600 bg-blue-600 text-white shadow-sm"
-          : "border-zinc-200 bg-white/80 text-zinc-900 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-950/70 dark:text-zinc-100 dark:hover:border-zinc-600"
-      }`}
-    >
-      <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${active ? "text-blue-100" : "text-zinc-500"}`}>
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-      <p className={`mt-1 text-xs ${active ? "text-blue-100" : "text-zinc-500"}`}>
-        {detail}
-      </p>
-    </button>
-  );
-}
-
-function SignalStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl bg-white/5 p-3">
-      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-white">{value}</p>
     </div>
   );
 }

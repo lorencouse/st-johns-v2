@@ -1,24 +1,22 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { RunStatus } from "@/components/studio/run-status";
+import { currentServiceStep, serviceStepHref } from "@/lib/service-steps";
 
 interface VideoActionsProps {
-  workspaceId: string;
   videoId: string;
   workspaceSlug: string;
   ingestStatus: string;
-  /** Premiere or stream that has not finished airing — nothing to fetch yet. */
+  /** Premiere or stream that has not finished airing, so nothing to do yet. */
   isScheduled?: boolean;
   project: { id: string; status: string } | null;
-  /** "large" renders full-size buttons for a featured card. */
+  /** "large" renders a full-size button for a featured card. */
   size?: "default" | "large";
 }
 
+/**
+ * The one next step for a video: a single link into its guided path. Getting
+ * captions starts on the service's own page, so rows never fetch directly.
+ */
 export function VideoActions({
-  workspaceId,
   videoId,
   workspaceSlug,
   ingestStatus,
@@ -26,88 +24,39 @@ export function VideoActions({
   project,
   size = "default",
 }: VideoActionsProps) {
+  if (isScheduled) {
+    return <span className="whitespace-nowrap text-xs text-zinc-400">Not aired yet</span>;
+  }
+
+  const projectId = project?.id ?? null;
+  const step = currentServiceStep({
+    captionsReady: ingestStatus === "captions_available",
+    projectId,
+  });
+  const href =
+    serviceStepHref(workspaceSlug, videoId, step, projectId) ??
+    serviceStepHref(workspaceSlug, videoId, "video", null)!;
+
+  const label =
+    size === "large"
+      ? step === "edit"
+        ? "Continue the post"
+        : "Start the post"
+      : step === "edit"
+        ? "Continue"
+        : "Start";
+
   const sizing =
     size === "large"
-      ? "inline-flex min-h-11 items-center rounded-lg px-5 py-2.5 text-sm"
-      : "rounded-md px-3 py-1.5 text-xs";
-  const router = useRouter();
-  const [runId, setRunId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleIngest() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/ingest`,
-        { method: "POST" }
-      );
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Couldn't start fetching captions");
-        return;
-      }
-      const data = await res.json();
-      setRunId(data.runId);
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (runId) {
-    return (
-      <RunStatus
-        runId={runId}
-        onSuccess={() => {
-          router.refresh();
-          setRunId(null);
-        }}
-        onRetry={() => {
-          setRunId(null);
-          handleIngest();
-        }}
-        onDismiss={() => {
-          setRunId(null);
-          router.refresh();
-        }}
-      />
-    );
-  }
+      ? "min-h-12 rounded-lg px-6 text-base font-semibold"
+      : "min-h-9 rounded-md px-3 text-xs font-medium pointer-coarse:min-h-11";
 
   return (
-    <div className="flex items-center gap-2">
-      {project && (
-        <Link
-          href={`/w/${workspaceSlug}/projects/${project.id}`}
-          className={`whitespace-nowrap bg-blue-600 font-medium text-white hover:bg-blue-700 ${sizing}`}
-        >
-          {size === "large" ? "Continue the post" : "Open post"}
-        </Link>
-      )}
-
-      {ingestStatus !== "captions_available" && !isScheduled && (
-        <button
-          onClick={handleIngest}
-          disabled={loading}
-          className={`bg-zinc-900 font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${sizing}`}
-        >
-          {loading ? "Starting..." : "Get captions"}
-        </button>
-      )}
-
-      {ingestStatus === "captions_available" && !project && (
-        <Link
-          href={`/w/${workspaceSlug}/library/${videoId}/review`}
-          className={`whitespace-nowrap bg-blue-600 font-medium text-white hover:bg-blue-700 ${sizing}`}
-        >
-          {size === "large" ? "Start the post" : "Start post"}
-        </Link>
-      )}
-
-      {error && <span className="text-xs text-red-500">{error}</span>}
-    </div>
+    <Link
+      href={href}
+      className={`inline-flex items-center justify-center whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700 ${sizing}`}
+    >
+      {label}
+    </Link>
   );
 }

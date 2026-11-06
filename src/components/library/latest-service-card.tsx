@@ -12,7 +12,6 @@ export interface LatestService {
 }
 
 interface LatestServiceCardProps {
-  workspaceId: string;
   workspaceSlug: string;
   video: LatestService;
 }
@@ -28,12 +27,11 @@ function nextStepText(video: LatestService): string {
   if (video.ingestStatus === "captions_available")
     return "The captions are ready. Turn this service into a blog post.";
   if (video.ingestStatus === "ingest_failed")
-    return "We couldn't get the captions last time. Try again.";
+    return "We couldn't get the captions last time. Open it to try again.";
   return "Get the captions from YouTube to start the post.";
 }
 
 export function LatestServiceCard({
-  workspaceId,
   workspaceSlug,
   video,
 }: LatestServiceCardProps) {
@@ -90,7 +88,6 @@ export function LatestServiceCard({
           </p>
           <div className="mt-4">
             <VideoActions
-              workspaceId={workspaceId}
               videoId={video.id}
               workspaceSlug={workspaceSlug}
               ingestStatus={video.ingestStatus}
