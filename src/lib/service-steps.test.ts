@@ -15,10 +15,19 @@ describe("currentServiceStep", () => {
     ).toBe("video");
   });
 
-  test("moves to checking the words once captions exist", () => {
+  test("moves to adding documents once captions exist", () => {
     expect(
       currentServiceStep({ captionsReady: true, projectId: null, ...editor })
-    ).toBe("words");
+    ).toBe("documents");
+  });
+
+  test("links the documents step for editors only", () => {
+    expect(
+      serviceStepHref("stj", "v1", "documents", { projectId: null, ...editor })
+    ).toBe("/w/stj/services/v1/documents");
+    expect(
+      serviceStepHref("stj", "v1", "documents", { projectId: null, ...viewer })
+    ).toBeNull();
   });
 
   test("goes to the editor once a post has been started", () => {
@@ -82,7 +91,7 @@ describe("continueHref", () => {
     ).toBe("/w/stj/services/v1");
     expect(
       continueHref("stj", "v1", { captionsReady: true, projectId: null, ...editor })
-    ).toBe("/w/stj/library/v1/review");
+    ).toBe("/w/stj/services/v1/documents");
     expect(
       continueHref("stj", "v1", { captionsReady: true, projectId: null, ...viewer })
     ).toBe("/w/stj/services/v1");

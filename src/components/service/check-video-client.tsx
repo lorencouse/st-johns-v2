@@ -86,7 +86,7 @@ export function CheckVideoClient({
     : null;
 
   const nextHref = captionsReady
-    ? serviceStepHref(workspaceSlug, videoId, projectId ? "edit" : "words", {
+    ? serviceStepHref(workspaceSlug, videoId, projectId ? "edit" : "documents", {
         projectId,
         canEdit,
       })
@@ -223,7 +223,7 @@ export function CheckVideoClient({
               href={nextHref}
               className="inline-flex min-h-12 flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-6 text-base font-semibold text-white hover:bg-blue-700 sm:flex-none"
             >
-              {projectId ? "Go to the post" : "Yes, check the words"}
+              {projectId ? "Go to the post" : "Yes, this is the one"}
             </Link>
           ) : (
             <span
