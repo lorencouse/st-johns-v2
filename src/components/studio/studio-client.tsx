@@ -223,7 +223,13 @@ export function StudioClient({
         if (field === "summary") setSummary(next);
         // Saved straight away: a debounced save would be cancelled by the
         // next fix to a different field.
-        void patchDraft({ [field]: next });
+        if (fieldDebounceRef.current) {
+          clearTimeout(fieldDebounceRef.current);
+          fieldDebounceRef.current = null;
+          void patchDraft({ ...fieldsRef.current, [field]: next });
+        } else {
+          void patchDraft({ [field]: next });
+        }
         return setSpotState(spot.key, "used");
       }
       const editor = editorRef.current;
