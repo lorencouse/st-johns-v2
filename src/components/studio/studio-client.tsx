@@ -12,9 +12,11 @@ import { CopyHtmlButton } from "./copy-html-button";
 import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 import { postStatusLabel } from "@/lib/status-labels";
+import { ServiceSteps } from "@/components/service/service-steps";
 
 interface StudioClientProps {
   workspaceId: string;
+  workspaceSlug: string;
   projectId: string;
   projectTitle: string;
   projectStatus: string;
@@ -41,6 +43,7 @@ interface StudioClientProps {
 
 export function StudioClient({
   workspaceId,
+  workspaceSlug,
   projectId,
   projectTitle,
   projectStatus,
@@ -201,11 +204,21 @@ export function StudioClient({
   }
 
   return (
-    <div className="flex flex-col lg:h-full lg:flex-row">
+    <div className="flex flex-col lg:h-full">
+      <div className="shrink-0 border-b border-zinc-200 px-4 pt-4 pb-3 dark:border-zinc-800">
+        <ServiceSteps
+          workspaceSlug={workspaceSlug}
+          videoId={videoId}
+          projectId={projectId}
+          canEdit={canEdit}
+          current="edit"
+        />
+      </div>
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       {/* Left rail - transcript */}
       <div className="shrink-0 border-b border-zinc-200 p-4 lg:w-80 lg:overflow-y-auto lg:border-r lg:border-b-0 dark:border-zinc-800">
         <h3 className="text-xs font-semibold uppercase text-zinc-400">
-          Source Video
+          Video
         </h3>
         <p className="mt-1 text-sm font-medium">{videoTitle}</p>
 
@@ -392,7 +405,7 @@ export function StudioClient({
           <div>
             <dt className="text-zinc-400">Draft</dt>
             <dd className="font-medium">
-              {draft ? `v${draft.versionNumber} (${draft.status})` : "—"}
+              {draft ? `Version ${draft.versionNumber}` : "Not written yet"}
             </dd>
           </div>
         </dl>
@@ -400,7 +413,7 @@ export function StudioClient({
         {/* Review Actions */}
         <div className="mt-6 space-y-2">
           <h3 className="text-xs font-semibold uppercase text-zinc-400">
-            Review
+            Approval (optional)
           </h3>
 
           {canEdit && projectStatus === "drafting" && draft && (
@@ -409,7 +422,7 @@ export function StudioClient({
               disabled={reviewLoading}
               className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Request review
+              Ask for approval
             </button>
           )}
 
@@ -435,7 +448,7 @@ export function StudioClient({
 
         {/* Export Actions */}
         {draft && (
-          <div className="mt-6 space-y-2">
+          <div id="publish" className="mt-6 scroll-mt-4 space-y-2">
             <h3 className="text-xs font-semibold uppercase text-zinc-400">
               Publish
             </h3>
@@ -473,6 +486,7 @@ export function StudioClient({
           />
         </div>
       </div>
+    </div>
     </div>
   );
 }

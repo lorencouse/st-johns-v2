@@ -16,6 +16,8 @@ import { flagContent } from "@/lib/content-flags";
 import { looksSung } from "@/lib/repetition-flags";
 import { RunStatus } from "@/components/studio/run-status";
 import { BlockControls } from "@/components/library/block-controls";
+import { ServiceSteps } from "@/components/service/service-steps";
+import { serviceStepHref } from "@/lib/service-steps";
 
 interface Segment {
   seq: number;
@@ -35,6 +37,8 @@ interface TranscriptReviewClientProps {
   workspaceId: string;
   workspaceSlug: string;
   videoId: string;
+  /** The post already written from this service, if there is one. */
+  projectId: string | null;
   videoTitle: string;
   providerVideoId: string;
   rawSegments: Segment[];
@@ -54,6 +58,7 @@ export function TranscriptReviewClient({
   workspaceId,
   workspaceSlug,
   videoId,
+  projectId,
   videoTitle,
   providerVideoId,
   rawSegments,
@@ -244,7 +249,7 @@ export function TranscriptReviewClient({
 
       if (!saveRes.ok) {
         const data = await saveRes.json();
-        setError(data.error || "Failed to save transcript");
+        setError(data.error || "We couldn't save your changes. Try again.");
         return;
       }
 
@@ -266,7 +271,7 @@ export function TranscriptReviewClient({
 
     if (!genRes.ok) {
       const data = await genRes.json();
-      setError(data.error || "Failed to start generation");
+      setError(data.error || "We couldn't start writing the post. Try again.");
       return;
     }
 
@@ -278,15 +283,16 @@ export function TranscriptReviewClient({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center space-y-4">
-          <h2 className="text-lg font-semibold">Generating your draft...</h2>
+          <h2 className="text-lg font-semibold">Writing your post...</h2>
+          <p className="text-sm text-zinc-500">This usually takes about a minute.</p>
           <RunStatus
             runId={generateRunId}
             onSuccess={(run) => {
-              const projectId = (run.outputJson as { projectId?: string })
+              const newProjectId = (run.outputJson as { projectId?: string })
                 ?.projectId;
               router.push(
-                projectId
-                  ? `/w/${workspaceSlug}/projects/${projectId}`
+                newProjectId
+                  ? `/w/${workspaceSlug}/projects/${newProjectId}`
                   : `/w/${workspaceSlug}/library`
               );
               router.refresh();
@@ -304,18 +310,32 @@ export function TranscriptReviewClient({
 
   return (
     <div className="flex h-full flex-col">
+      <div className="border-b border-zinc-200 px-4 pt-4 pb-3 dark:border-zinc-800">
+        <ServiceSteps
+          workspaceSlug={workspaceSlug}
+          videoId={videoId}
+          projectId={projectId}
+          canEdit
+          current="words"
+        />
+      </div>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href={`/w/${workspaceSlug}/library`}
-            aria-label="Back to services"
+            href={
+              serviceStepHref(workspaceSlug, videoId, "video", {
+                projectId,
+                canEdit: true,
+              })!
+            }
+            aria-label="Back to the video"
             className="shrink-0 text-zinc-400 hover:text-zinc-600 pointer-coarse:-m-3.5 pointer-coarse:p-3.5 dark:hover:text-zinc-300"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold">Review transcript</h1>
+            <h1 className="text-sm font-semibold">Check the words</h1>
             <p className="truncate text-xs text-zinc-500">
               {videoTitle}
             </p>
@@ -328,7 +348,7 @@ export function TranscriptReviewClient({
               <Scissors className="h-3 w-3 text-zinc-500" />
               <span>
                 {startMs !== null ? formatTimestampMs(startMs) : "start"}
-                {" — "}
+                {" to "}
                 {endMs !== null ? formatTimestampMs(endMs) : "end"}
               </span>
               <button
@@ -342,18 +362,27 @@ export function TranscriptReviewClient({
           <span className="text-xs tabular-nums text-zinc-400">
             {visibleBlocks.length} blocks
           </span>
-          <button
-            onClick={handleSaveAndGenerate}
-            disabled={saving || visibleBlocks.length === 0}
-            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Sparkles className="h-3 w-3" />
-            )}
-            <span className="truncate">Save transcript and start project</span>
-          </button>
+          {projectId ? (
+            <Link
+              href={`/w/${workspaceSlug}/projects/${projectId}`}
+              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              <span className="truncate">Go to the post</span>
+            </Link>
+          ) : (
+            <button
+              onClick={handleSaveAndGenerate}
+              disabled={saving || visibleBlocks.length === 0}
+              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              <span className="truncate">Save and write the post</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -382,7 +411,7 @@ export function TranscriptReviewClient({
         <div className="w-1/2 flex flex-col border-r border-zinc-200 dark:border-zinc-800">
           <div className="border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
             <h3 className="text-xs font-semibold uppercase text-zinc-400">
-              Original (raw captions) — {visibleRaw.length} segments
+              From YouTube ({visibleRaw.length} lines)
             </h3>
           </div>
           <div
@@ -416,7 +445,7 @@ export function TranscriptReviewClient({
         <div className="w-1/2 flex flex-col">
           <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
             <h3 className="text-xs font-semibold uppercase text-zinc-400">
-              Cleaned (editable) — {visibleBlocks.length} blocks
+              Your version ({visibleBlocks.length} paragraphs)
             </h3>
             <button
               onClick={handleUndo}
@@ -464,7 +493,7 @@ export function TranscriptReviewClient({
                         {likelySung && (
                           <span
                             className="text-[10px] text-indigo-600 dark:text-indigo-400"
-                            title="Repetitive text — often a hymn. Delete this block if it is sung."
+                            title="Repeated words, often a hymn. Delete this paragraph if it is sung."
                           >
                             ♪ likely sung
                           </span>

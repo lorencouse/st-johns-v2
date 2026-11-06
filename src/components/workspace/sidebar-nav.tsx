@@ -2,17 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleCheck, FileText, MonitorPlay, Settings } from "lucide-react";
+import { MonitorPlay, Settings } from "lucide-react";
 
 interface SidebarNavProps {
   workspaceSlug: string;
 }
 
+// Every service's post, caption check and approval lives on its own guided
+// path, reached from Services, so the menu only needs these two places.
 const navItems = [
-  { label: "Services", href: "library", icon: MonitorPlay },
-  { label: "Posts", href: "projects", icon: FileText },
-  { label: "Approvals", href: "review", icon: CircleCheck },
-  { label: "Settings", href: "settings/general", icon: Settings },
+  {
+    label: "Services",
+    href: "library",
+    icon: MonitorPlay,
+    matches: ["library", "services", "projects", "review"],
+  },
+  {
+    label: "Settings",
+    href: "settings/general",
+    icon: Settings,
+    matches: ["settings"],
+  },
 ];
 
 export function SidebarNav({ workspaceSlug }: SidebarNavProps) {
@@ -23,7 +33,9 @@ export function SidebarNav({ workspaceSlug }: SidebarNavProps) {
     <nav className="flex gap-1 p-2 md:flex-col md:p-3">
       {navItems.map((item) => {
         const href = `${basePath}/${item.href}`;
-        const isActive = pathname.startsWith(href);
+        const isActive = item.matches.some((m) =>
+          pathname.startsWith(`${basePath}/${m}`)
+        );
         const Icon = item.icon;
         return (
           <Link

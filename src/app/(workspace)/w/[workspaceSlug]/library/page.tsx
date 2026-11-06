@@ -77,7 +77,7 @@ export default async function LibraryPage({
     page: pageParam,
     pageSize: pageSizeParam,
   } = await searchParams;
-  const { workspace } = await requireWorkspaceMember(workspaceSlug);
+  const { workspace, role } = await requireWorkspaceMember(workspaceSlug);
 
   const activeFilter = parseFilter(filterParam);
   const pageSize = parsePageSize(pageSizeParam);
@@ -255,6 +255,7 @@ export default async function LibraryPage({
       workspaceId={workspace.id}
       workspaceSlug={workspaceSlug}
       workspaceName={workspace.name}
+      canEdit={["owner", "admin", "editor"].includes(role)}
       channelCount={channels.length}
       playlists={playlists}
       syncRunId={syncRunId ?? null}

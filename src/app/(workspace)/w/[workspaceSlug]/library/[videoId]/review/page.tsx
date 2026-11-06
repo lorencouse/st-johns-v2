@@ -1,6 +1,7 @@
 import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import {
+  contentProjects,
   sourceVideos,
   workspaceVideos,
   transcriptRevisions,
@@ -58,6 +59,19 @@ export default async function TranscriptReviewPage({
     notFound();
   }
 
+  // Once a post exists, this page only points to it, so nothing here can
+  // write the post again.
+  const [project] = await db
+    .select({ id: contentProjects.id })
+    .from(contentProjects)
+    .where(
+      and(
+        eq(contentProjects.sourceVideoId, videoId),
+        eq(contentProjects.workspaceId, workspace.id)
+      )
+    )
+    .limit(1);
+
   // Load all revisions for this video in this workspace
   const revisions = await db
     .select()
@@ -113,6 +127,7 @@ export default async function TranscriptReviewPage({
       workspaceId={workspace.id}
       workspaceSlug={workspaceSlug}
       videoId={videoId}
+      projectId={project?.id ?? null}
       videoTitle={video.title}
       providerVideoId={videoId}
       rawSegments={rawSegments}

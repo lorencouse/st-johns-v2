@@ -12,9 +12,9 @@ export interface LatestService {
 }
 
 interface LatestServiceCardProps {
-  workspaceId: string;
   workspaceSlug: string;
   video: LatestService;
+  canEdit: boolean;
 }
 
 /** One sentence telling staff where this service is up to. */
@@ -28,14 +28,14 @@ function nextStepText(video: LatestService): string {
   if (video.ingestStatus === "captions_available")
     return "The captions are ready. Turn this service into a blog post.";
   if (video.ingestStatus === "ingest_failed")
-    return "We couldn't get the captions last time. Try again.";
+    return "We couldn't get the captions last time. Open it to try again.";
   return "Get the captions from YouTube to start the post.";
 }
 
 export function LatestServiceCard({
-  workspaceId,
   workspaceSlug,
   video,
+  canEdit,
 }: LatestServiceCardProps) {
   const date = video.publishedAt
     ? new Date(video.publishedAt).toLocaleDateString(undefined, {
@@ -90,11 +90,11 @@ export function LatestServiceCard({
           </p>
           <div className="mt-4">
             <VideoActions
-              workspaceId={workspaceId}
               videoId={video.id}
               workspaceSlug={workspaceSlug}
               ingestStatus={video.ingestStatus}
               project={video.project}
+              canEdit={canEdit}
               size="large"
             />
           </div>

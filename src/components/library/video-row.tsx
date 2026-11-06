@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VideoActions } from "./video-actions";
+import { continueHref } from "@/lib/service-steps";
 import { postStatusLabel, postStatusTone } from "@/lib/status-labels";
 
 interface VideoRowProps {
-  workspaceId: string;
   workspaceSlug: string;
   video: {
     id: string;
@@ -19,14 +19,15 @@ interface VideoRowProps {
   };
   channelTitle: string | null;
   project: { id: string; status: string } | null;
+  canEdit: boolean;
 }
 
 export function VideoRow({
-  workspaceId,
   workspaceSlug,
   video,
   channelTitle,
   project,
+  canEdit,
 }: VideoRowProps) {
   const router = useRouter();
 
@@ -38,15 +39,13 @@ export function VideoRow({
 
   function handleClick() {
     if (isScheduled) return;
-    if (project) {
-      router.push(`/w/${workspaceSlug}/projects/${project.id}`);
-      return;
-    }
-
-    if (video.ingestStatus === "captions_available") {
-      router.push(`/w/${workspaceSlug}/library/${video.id}/review`);
-      return;
-    }
+    router.push(
+      continueHref(workspaceSlug, video.id, {
+        captionsReady: video.ingestStatus === "captions_available",
+        projectId: project?.id ?? null,
+        canEdit,
+      })
+    );
   }
 
   const pipelineLabel = isLive
@@ -84,7 +83,7 @@ export function VideoRow({
 
   return (
     <tr className="border-b border-zinc-100 dark:border-zinc-800">
-      <td className="min-w-56 px-4 py-4 pr-4">
+      <td className="min-w-0 px-4 py-4 pr-4 md:min-w-56">
         <button
           onClick={handleClick}
           className="flex items-center gap-3 whitespace-normal text-left hover:opacity-80"
@@ -109,22 +108,24 @@ export function VideoRow({
                     : "Not aired yet. Nothing to fetch yet"
                   : project
                     ? "Open the post"
-                    : video.ingestStatus === "captions_available"
+                    : !canEdit
+                      ? "Open the service"
+                      : video.ingestStatus === "captions_available"
                       ? "Check the captions and start the post"
-                      : "Get the captions from YouTube when you are ready"}
+                      : "Start this service when you are ready"}
             </p>
           </div>
         </button>
       </td>
-      <td className="px-4 py-4 pr-4 text-zinc-500">{channelTitle}</td>
-      <td className="whitespace-nowrap px-4 py-4 pr-4 text-zinc-500">
+      <td className="hidden px-4 py-4 pr-4 text-zinc-500 md:table-cell">{channelTitle}</td>
+      <td className="hidden whitespace-nowrap px-4 py-4 pr-4 text-zinc-500 md:table-cell">
         {isUpcoming && scheduledFor
           ? scheduledFor
           : video.publishedAt
             ? new Date(video.publishedAt).toLocaleDateString()
-            : "—"}
+            : "No date"}
       </td>
-      <td className="px-4 py-4 pr-4">
+      <td className="hidden px-4 py-4 pr-4 md:table-cell">
         <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${pipelineTone}`}>
           {pipelineLabel}
         </span>
@@ -143,12 +144,12 @@ export function VideoRow({
       </td>
       <td className="px-4 py-4">
         <VideoActions
-          workspaceId={workspaceId}
           videoId={video.id}
           workspaceSlug={workspaceSlug}
           ingestStatus={video.ingestStatus}
           isScheduled={isScheduled}
           project={project}
+          canEdit={canEdit}
         />
       </td>
     </tr>
