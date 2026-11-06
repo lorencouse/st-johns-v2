@@ -13,9 +13,9 @@ export type FilterKey = (typeof FILTER_KEYS)[number];
 export const FILTER_LABELS: Record<FilterKey, string> = {
   all: "All videos",
   needs_captions: "Needs captions",
-  ready_to_draft: "Ready to draft",
-  drafting: "Drafting",
-  review_queue: "Review queue",
+  ready_to_draft: "Ready for a post",
+  drafting: "Post in progress",
+  review_queue: "Waiting for approval",
   approved: "Approved",
-  no_project: "No project",
+  no_project: "No post yet",
 };

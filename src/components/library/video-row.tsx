@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VideoActions } from "./video-actions";
+import { postStatusLabel, postStatusTone } from "@/lib/status-labels";
 
 interface VideoRowProps {
   workspaceId: string;
@@ -53,12 +54,12 @@ export function VideoRow({
     : isUpcoming
       ? "Scheduled"
       : video.ingestStatus === "captions_available"
-        ? "Transcript ready"
+        ? "Captions ready"
         : video.ingestStatus === "ingest_failed"
-          ? "Ingest failed"
+          ? "Couldn't get captions"
           : video.ingestStatus === "metadata_synced"
-            ? "Waiting for captions"
-            : "Not processed";
+            ? "Captions not fetched"
+            : "Not started";
 
   const pipelineTone = isLive
     ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
@@ -79,15 +80,7 @@ export function VideoRow({
       })
     : null;
 
-  const projectTone = project
-    ? project.status === "approved"
-      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-      : project.status === "ready_for_review"
-        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-        : project.status === "changes_requested"
-          ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-          : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-    : "";
+  const projectTone = project ? postStatusTone(project.status) : "";
 
   return (
     <tr className="border-b border-zinc-100 dark:border-zinc-800">
@@ -109,16 +102,16 @@ export function VideoRow({
             <span className="font-medium line-clamp-1">{video.title}</span>
             <p className="mt-1 text-xs text-zinc-500">
               {isLive
-                ? "Airing now — captions can be fetched once it ends"
+                ? "Airing now. Captions can be fetched once it ends"
                 : isUpcoming
                   ? scheduledFor
-                    ? `Premieres ${scheduledFor} — nothing to transcribe yet`
-                    : "Not aired yet — nothing to transcribe yet"
+                    ? `Premieres ${scheduledFor}. Nothing to fetch yet`
+                    : "Not aired yet. Nothing to fetch yet"
                   : project
-                    ? "Open the project workspace"
+                    ? "Open the post"
                     : video.ingestStatus === "captions_available"
-                      ? "Review transcript and start a project"
-                      : "Imported to the library and ready for captions when you choose"}
+                      ? "Check the captions and start the post"
+                      : "Get the captions from YouTube when you are ready"}
             </p>
           </div>
         </button>
@@ -142,7 +135,7 @@ export function VideoRow({
             href={`/w/${workspaceSlug}/projects/${project.id}`}
             className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${projectTone}`}
           >
-            {project.status.replace("_", " ")}
+            {postStatusLabel(project.status)}
           </Link>
         ) : (
           <span className="whitespace-nowrap text-xs text-zinc-400">Not started</span>

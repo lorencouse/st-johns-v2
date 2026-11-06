@@ -11,6 +11,7 @@ import { ExportPanel } from "./export-panel";
 import { CopyHtmlButton } from "./copy-html-button";
 import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
+import { postStatusLabel } from "@/lib/status-labels";
 
 interface StudioClientProps {
   workspaceId: string;
@@ -251,7 +252,7 @@ export function StudioClient({
             )}
             <div className="flex min-w-0 flex-wrap items-center gap-2 pt-2">
               <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-                {projectStatus.replace("_", " ")}
+                {postStatusLabel(projectStatus)}
               </span>
               {saving && (
                 <span className="text-xs text-zinc-400">Saving...</span>
@@ -386,7 +387,7 @@ export function StudioClient({
         <dl className="mt-3 space-y-3 text-sm">
           <div>
             <dt className="text-zinc-400">Status</dt>
-            <dd className="font-medium">{projectStatus.replace("_", " ")}</dd>
+            <dd className="font-medium">{postStatusLabel(projectStatus)}</dd>
           </div>
           <div>
             <dt className="text-zinc-400">Draft</dt>

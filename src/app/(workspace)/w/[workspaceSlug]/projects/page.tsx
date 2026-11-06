@@ -5,6 +5,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import Link from "next/link";
 import { Pagination } from "@/components/ui/pagination";
 import { parsePage, parsePageSize, resolvePaging } from "@/lib/pagination";
+import { postStatusLabel, postStatusTone } from "@/lib/status-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -51,13 +52,13 @@ export default async function ProjectsPage({
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold">Projects</h1>
+      <h1 className="text-2xl font-bold">Posts</h1>
 
       {total === 0 ? (
         <div className="mt-16 text-center">
-          <p className="text-zinc-500">No projects yet.</p>
+          <p className="text-zinc-500">No posts yet.</p>
           <p className="mt-2 text-sm text-zinc-400">
-            Generate a project from a video in the Library.
+            Start a post from a service on the Services page.
           </p>
         </div>
       ) : (
@@ -73,8 +74,8 @@ export default async function ProjectsPage({
                   <p className="font-medium">{project.title}</p>
                   <p className="text-sm text-zinc-500">{project.videoTitle}</p>
                 </div>
-                <span className="ml-4 shrink-0 whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-                  {project.status}
+                <span className={`ml-4 shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${postStatusTone(project.status)}`}>
+                  {postStatusLabel(project.status)}
                 </span>
               </Link>
             ))}
@@ -85,7 +86,7 @@ export default async function ProjectsPage({
             pageCount={pageCount}
             pageSize={pageSize}
             total={total}
-            label="project"
+            label="post"
           />
         </>
       )}

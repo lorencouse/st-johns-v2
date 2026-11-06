@@ -190,6 +190,32 @@ export default async function LibraryPage({
     .limit(pageSize)
     .offset(offset);
 
+  // The newest service that has finished airing leads the page, whatever
+  // search or filter is active, so the next job is always one click away.
+  const [latest] = await db
+    .select({
+      id: sourceVideos.id,
+      title: sourceVideos.title,
+      thumbnailUrl: sourceVideos.thumbnailUrl,
+      publishedAt: sourceVideos.publishedAt,
+      ingestStatus: workspaceVideos.ingestStatus,
+      hasTranscript: hasTranscriptSql,
+      projectId: contentProjects.id,
+      projectStatus: contentProjects.status,
+    })
+    .from(workspaceVideos)
+    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
+    .leftJoin(
+      contentProjects,
+      and(
+        eq(contentProjects.sourceVideoId, sourceVideos.id),
+        eq(contentProjects.workspaceId, workspace.id)
+      )
+    )
+    .where(and(workspaceCondition, sql`not ${isScheduledSql}`))
+    .orderBy(sql`${sourceVideos.publishedAt} desc nulls last`, desc(sourceVideos.id))
+    .limit(1);
+
   const channels = await db
     .select({ id: workspaceChannels.channelId })
     .from(workspaceChannels)
@@ -233,6 +259,23 @@ export default async function LibraryPage({
       playlists={playlists}
       syncRunId={syncRunId ?? null}
       needsReconnect={needsReconnect}
+      latestService={
+        latest
+          ? {
+              id: latest.id,
+              title: latest.title,
+              thumbnailUrl: latest.thumbnailUrl,
+              publishedAt: latest.publishedAt?.toISOString() ?? null,
+              ingestStatus: latest.hasTranscript
+                ? "captions_available"
+                : latest.ingestStatus,
+              project:
+                latest.projectId && latest.projectStatus
+                  ? { id: latest.projectId, status: latest.projectStatus }
+                  : null,
+            }
+          : null
+      }
       activeFilter={activeFilter}
       query={search}
       page={page}
