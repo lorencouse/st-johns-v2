@@ -9,6 +9,7 @@ import { eq, desc, sql } from "drizzle-orm";
 import Link from "next/link";
 import { Pagination } from "@/components/ui/pagination";
 import { parsePage, parsePageSize, resolvePaging } from "@/lib/pagination";
+import { reviewRequestLabel } from "@/lib/status-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -63,11 +64,11 @@ export default async function ReviewPage({
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold">Review</h1>
+      <h1 className="text-2xl font-bold">Approvals</h1>
 
       {total === 0 ? (
         <div className="mt-16 text-center">
-          <p className="text-zinc-500">No items to review.</p>
+          <p className="text-zinc-500">Nothing is waiting for approval.</p>
         </div>
       ) : (
         <>
@@ -85,7 +86,7 @@ export default async function ReviewPage({
                   </p>
                 </div>
                 <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium dark:bg-zinc-800">
-                  {request.status}
+                  {reviewRequestLabel(request.status)}
                 </span>
               </Link>
             ))}
@@ -96,7 +97,7 @@ export default async function ReviewPage({
             pageCount={pageCount}
             pageSize={pageSize}
             total={total}
-            label="review request"
+            label="approval request"
           />
         </>
       )}

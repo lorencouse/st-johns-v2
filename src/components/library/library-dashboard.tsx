@@ -7,6 +7,7 @@ import { RunStatus } from "@/components/studio/run-status";
 import { VideoRow } from "./video-row";
 import { FILTER_KEYS, FILTER_LABELS, type FilterKey } from "./library-filters";
 import { Pagination } from "@/components/ui/pagination";
+import { LatestServiceCard, type LatestService } from "./latest-service-card";
 
 interface LibraryVideo {
   id: string;
@@ -47,6 +48,7 @@ interface LibraryDashboardProps {
   playlists: LibraryPlaylist[];
   syncRunId: string | null;
   needsReconnect: boolean;
+  latestService: LatestService | null;
   activeFilter: FilterKey;
   query: string;
   page: number;
@@ -73,34 +75,34 @@ function buildChecklist(
     },
     {
       id: "sync_videos",
-      title: "See videos and playlists",
-      description: "After connecting, the workspace should show imported uploads and playlists.",
+      title: "See your videos",
+      description: "After connecting, your channel's videos and playlists show up here.",
       done: stats.totalVideos > 0,
       actionLabel: "Open integrations",
       href: "settings/integrations",
     },
     {
       id: "fetch_captions",
-      title: "Fetch captions for a video",
-      description: "Choose a video from the library and pull its captions when you are ready to work on it.",
+      title: "Get captions for a service",
+      description: "Pick a service and get its captions from YouTube when you are ready to work on it.",
       done: stats.captionsReady > 0,
-      actionLabel: "Show videos needing captions",
+      actionLabel: "Show videos without captions",
       filter: "needs_captions" as const,
     },
     {
       id: "generate_draft",
-      title: "Start your first project",
-      description: "Review the transcript, then create a project from that video.",
+      title: "Start your first post",
+      description: "Check the captions, then turn the service into a blog post.",
       done: stats.hasProject,
-      actionLabel: "Show caption-ready videos",
+      actionLabel: "Show videos ready for a post",
       filter: "ready_to_draft" as const,
     },
     {
       id: "start_review",
-      title: "Send one item to review",
-      description: "Use review to turn drafting into a repeatable publishing process.",
+      title: "Ask someone to approve a post",
+      description: "Optional: have someone read a post over before it goes on your website.",
       done: stats.hasReviewActivity,
-      actionLabel: "Open review queue",
+      actionLabel: "Open approvals",
       href: "review",
     },
   ];
@@ -114,6 +116,7 @@ export function LibraryDashboard({
   playlists,
   syncRunId,
   needsReconnect,
+  latestService,
   activeFilter,
   query,
   page,
@@ -231,47 +234,57 @@ export function LibraryDashboard({
         </section>
       )}
 
+      {latestService && (
+        <div className="mb-6">
+          <LatestServiceCard
+            workspaceId={workspaceId}
+            workspaceSlug={workspaceSlug}
+            video={latestService}
+          />
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[28px] border border-zinc-200 bg-[radial-gradient(circle_at_top_left,_rgba(29,78,216,0.14),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(244,244,245,0.96))] p-4 shadow-sm sm:p-6 dark:border-zinc-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.15),_transparent_30%),linear-gradient(135deg,_rgba(9,9,11,0.98),_rgba(24,24,27,0.96))]">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600 dark:text-blue-400">
-              Workspace dashboard
+              {workspaceName}
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-              {workspaceName} content pipeline
+              Services
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-              Start with the imported channel library, pick a video to fetch captions,
-              then turn that reviewed transcript into a project when you are ready.
+              Pick a service, check its captions, then turn it into a blog post
+              for your website.
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
-              label="Videos in library"
+              label="Videos"
               value={stats.totalVideos}
               detail={`${channelCount} synced channel${channelCount === 1 ? "" : "s"}`}
               active={activeFilter === "all"}
               onClick={() => setFilter("all")}
             />
             <SummaryCard
-              label="Ready to draft"
+              label="Ready for a post"
               value={stats.readyToDraft}
-              detail="Captions available, project not started"
+              detail="Captions ready, no post yet"
               active={activeFilter === "ready_to_draft"}
               onClick={() => setFilter("ready_to_draft")}
             />
             <SummaryCard
-              label="In review"
+              label="Waiting for approval"
               value={stats.reviewQueue}
-              detail="Ready for review or changes requested"
+              detail="Waiting for approval or changes"
               active={activeFilter === "review_queue"}
               onClick={() => setFilter("review_queue")}
             />
             <SummaryCard
               label="Approved"
               value={stats.approved}
-              detail="Completed editorial flow"
+              detail="Ready to publish"
               active={activeFilter === "approved"}
               onClick={() => setFilter("approved")}
             />
@@ -283,9 +296,9 @@ export function LibraryDashboard({
         <div className="min-w-0 rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Workflow views</h2>
+              <h2 className="text-lg font-semibold">All videos</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Browse imported videos, then focus on the next step for each one.
+                Each video shows its next step. Search or filter to find one.
               </p>
             </div>
             <div className="w-full max-w-sm">
@@ -297,7 +310,7 @@ export function LibraryDashboard({
                 type="search"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search titles, channels, or statuses"
+                placeholder="Search by title or channel"
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white dark:border-zinc-700 dark:bg-zinc-900"
               />
             </div>
@@ -324,8 +337,7 @@ export function LibraryDashboard({
             <div className="mt-6 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center dark:border-zinc-700 dark:bg-zinc-900/50">
               <h3 className="text-lg font-semibold">Your library is empty</h3>
               <p className="mt-2 text-sm text-zinc-500">
-                Connect YouTube and the workspace will import the channel&apos;s videos
-                and playlists here for you to work through manually.
+                Connect your YouTube channel and its videos will show up here.
               </p>
               <div className="mt-5">
                 <a
@@ -375,10 +387,10 @@ export function LibraryDashboard({
                     <tr>
                       <th className="px-4 py-3 font-medium">Video</th>
                       <th className="px-4 py-3 font-medium">Channel</th>
-                      <th className="px-4 py-3 font-medium">Published</th>
-                      <th className="px-4 py-3 font-medium">Pipeline</th>
-                      <th className="px-4 py-3 font-medium">Project</th>
-                      <th className="px-4 py-3 font-medium">Next action</th>
+                      <th className="px-4 py-3 font-medium">Date</th>
+                      <th className="px-4 py-3 font-medium">Captions</th>
+                      <th className="px-4 py-3 font-medium">Post</th>
+                      <th className="px-4 py-3 font-medium">Next step</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -423,7 +435,7 @@ export function LibraryDashboard({
               <div>
                 <h2 className="text-lg font-semibold">Playlists</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Imported with the channel so the library shows both uploads and playlist structure immediately.
+                  Your channel&apos;s playlists, brought in from YouTube.
                 </p>
               </div>
               <p className="text-2xl font-semibold tabular-nums">{playlists.length}</p>
@@ -466,9 +478,9 @@ export function LibraryDashboard({
           <div className="rounded-[24px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5 dark:border-zinc-800 dark:bg-zinc-950">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">Setup checklist</h2>
+                <h2 className="text-lg font-semibold">Getting started</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Keep the workflow explicit: import library, choose a video, fetch captions, then start a project.
+                  Five steps to your first post.
                 </p>
               </div>
               <div className="text-right">
@@ -536,12 +548,12 @@ export function LibraryDashboard({
 
             <div className="mt-5 rounded-2xl bg-zinc-950 p-4 text-zinc-100 dark:bg-zinc-900">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
-                Editorial signal
+                At a glance
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <SignalStat label="Captions ready" value={stats.captionsReady} />
-                <SignalStat label="Drafting" value={stats.drafting} />
-                <SignalStat label="Review queue" value={stats.reviewQueue} />
+                <SignalStat label="In progress" value={stats.drafting} />
+                <SignalStat label="Awaiting approval" value={stats.reviewQueue} />
                 <SignalStat label="Approved" value={stats.approved} />
               </div>
             </div>

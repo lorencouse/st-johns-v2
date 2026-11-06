@@ -48,8 +48,8 @@ export default async function IntegrationsPage({
         <section>
           <h2 className="text-lg font-semibold">Connect YouTube Channel</h2>
           <p className="mt-1 max-w-2xl text-sm text-zinc-500">
-            Connecting a channel imports its videos and playlists into the library.
-            Projects and caption fetches still start manually per video.
+            Connecting a channel brings its videos and playlists into Services.
+            You choose which services to turn into posts.
           </p>
           <div className="mt-4 max-w-md">
             <ConnectChannelButton
