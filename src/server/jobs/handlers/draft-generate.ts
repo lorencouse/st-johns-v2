@@ -19,6 +19,7 @@ import {
   blocksToPlainText,
 } from "@/server/content/document";
 import type { CaptionSegment } from "@/server/youtube/api";
+import { markRunRunning } from "@/server/jobs/runs";
 
 export interface DraftGeneratePayload {
   workspaceId: string;
@@ -81,10 +82,7 @@ async function assertReplaceable(
 export async function handleDraftGenerate(payload: DraftGeneratePayload) {
   const { workspaceId, videoId, userId, runId } = payload;
 
-  await db
-    .update(appRuns)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(appRuns.id, runId));
+  await markRunRunning(runId);
 
   try {
     // 1. Get video info (verify it belongs to workspace via junction table)

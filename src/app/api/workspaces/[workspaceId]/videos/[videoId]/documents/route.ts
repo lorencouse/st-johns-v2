@@ -10,26 +10,13 @@ import {
   storedContentType,
 } from "@/lib/documents";
 import { db } from "@/server/db";
-import { auditEvents, serviceDocuments, workspaceVideos } from "@/server/db/schema";
+import { auditEvents, serviceDocuments } from "@/server/db/schema";
 import { extractDocumentText } from "@/server/documents/extract";
 import { documentSummary } from "@/server/documents/summary";
 import { deleteObject, isStorageConfigured, putObject } from "@/server/storage/r2";
+import { findWorkspaceVideo } from "@/server/services/queries";
 
 type Params = { params: Promise<{ workspaceId: string; videoId: string }> };
-
-async function videoInWorkspace(workspaceId: string, videoId: string) {
-  const [row] = await db
-    .select({ videoId: workspaceVideos.videoId })
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-  return !!row;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { workspaceId, videoId } = await params;
@@ -60,7 +47,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       { status: 503 }
     );
   }
-  if (!(await videoInWorkspace(workspaceId, videoId))) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 

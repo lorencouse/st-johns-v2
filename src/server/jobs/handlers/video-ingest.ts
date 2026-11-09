@@ -19,6 +19,7 @@ import {
   mergeIntoParagraphs,
   noAiCleanup,
 } from "@/server/ai/cleanup";
+import { markRunRunning } from "@/server/jobs/runs";
 
 export interface VideoIngestPayload {
   workspaceId: string;
@@ -33,10 +34,7 @@ export interface VideoIngestPayload {
 export async function handleVideoIngest(payload: VideoIngestPayload) {
   const { workspaceId, videoId, userId, runId } = payload;
 
-  await db
-    .update(appRuns)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(appRuns.id, runId));
+  await markRunRunning(runId);
 
   try {
     // 1. Pull YouTube's own caption track via yt-dlp. This works for any

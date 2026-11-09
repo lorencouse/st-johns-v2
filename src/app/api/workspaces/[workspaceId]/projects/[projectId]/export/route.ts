@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
-import { contentProjects, appRuns } from "@/server/db/schema";
+import { contentProjects } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { exportRenderQueue } from "@/server/jobs/queue";
+import { createRun } from "@/server/jobs/runs";
 
 export async function POST(
   req: NextRequest,
@@ -40,18 +41,14 @@ export async function POST(
     );
   }
 
-  const [run] = await db
-    .insert(appRuns)
-    .values({
-      workspaceId,
-      kind: "export_render",
-      status: "queued",
-      subjectType: "content_project",
-      subjectId: projectId,
-      triggeredByUserId: ctx.userId,
-      inputJson: { format },
-    })
-    .returning();
+  const run = await createRun({
+    workspaceId,
+    kind: "export_render",
+    subjectType: "content_project",
+    subjectId: projectId,
+    userId: ctx.userId,
+    inputJson: { format },
+  });
 
   await exportRenderQueue.add("export", {
     workspaceId,

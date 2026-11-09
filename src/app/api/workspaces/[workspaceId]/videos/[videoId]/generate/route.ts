@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceRole } from "@/lib/api-helpers";
-import { db } from "@/server/db";
-import { workspaceVideos, appRuns } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { findWorkspaceVideo } from "@/server/services/queries";
 import { draftGenerateQueue } from "@/server/jobs/queue";
-import { findActiveRun } from "@/server/jobs/runs";
+import { createRun, findActiveRun } from "@/server/jobs/runs";
 
 export async function POST(
   _req: NextRequest,
@@ -14,19 +12,7 @@ export async function POST(
   const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
 
-  // Verify video belongs to workspace via junction table
-  const [wsVideo] = await db
-    .select()
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-
-  if (!wsVideo) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
@@ -40,20 +26,14 @@ export async function POST(
     return NextResponse.json({ runId: activeRun.id }, { status: 202 });
   }
 
-  // Create run
-  const [run] = await db
-    .insert(appRuns)
-    .values({
-      workspaceId,
-      kind: "project_generate",
-      status: "queued",
-      subjectType: "source_video",
-      subjectId: videoId,
-      triggeredByUserId: ctx.userId,
-    })
-    .returning();
+  const run = await createRun({
+    workspaceId,
+    kind: "project_generate",
+    subjectType: "source_video",
+    subjectId: videoId,
+    userId: ctx.userId,
+  });
 
-  // Queue job
   await draftGenerateQueue.add("generate", {
     workspaceId,
     videoId,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
+import { findWorkspaceVideo } from "@/server/services/queries";
 import {
-  workspaceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
@@ -16,19 +16,7 @@ export async function POST(
   const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
 
-  // Verify video belongs to workspace via junction table
-  const [wsVideo] = await db
-    .select()
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-
-  if (!wsVideo) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 

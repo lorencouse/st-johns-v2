@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
 import { requireApiWorkspaceRole } from "@/lib/api-helpers";
-import { db } from "@/server/db";
-import { workspaceVideos } from "@/server/db/schema";
 import { checkWords, type WordCheckParagraph } from "@/server/ai/word-check";
 import { loadReferenceText } from "@/server/documents/reference";
+import { findWorkspaceVideo } from "@/server/services/queries";
 
 type Params = { params: Promise<{ workspaceId: string; videoId: string }> };
 
@@ -20,17 +18,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const ctx = await requireApiWorkspaceRole(workspaceId, "edit", "You need editing access to check the words.");
   if ("error" in ctx) return ctx.error;
 
-  const [wsVideo] = await db
-    .select({ videoId: workspaceVideos.videoId })
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-  if (!wsVideo) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 

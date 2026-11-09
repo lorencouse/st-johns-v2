@@ -4,10 +4,10 @@ import { db } from "@/server/db";
 import {
   transcriptIssues,
   transcriptRevisions,
-  workspaceVideos,
   users,
 } from "@/server/db/schema";
 import { and, eq, desc } from "drizzle-orm";
+import { findWorkspaceVideo } from "@/server/services/queries";
 
 export async function GET(
   _req: NextRequest,
@@ -67,19 +67,7 @@ export async function POST(
     );
   }
 
-  // Verify video belongs to workspace via junction table
-  const [wsVideo] = await db
-    .select()
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-
-  if (!wsVideo) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json(
       { error: "Video not found" },
       { status: 404 }

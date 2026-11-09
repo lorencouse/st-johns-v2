@@ -9,6 +9,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { renderHtml, renderMarkdown } from "@/server/export/render";
 import { blocksFromContentJson } from "@/server/content/document";
+import { markRunRunning } from "@/server/jobs/runs";
 
 export interface ExportRenderPayload {
   workspaceId: string;
@@ -23,10 +24,7 @@ export async function handleExportRender(payload: ExportRenderPayload) {
   const { workspaceId, projectId, draftVersionId, format, userId, runId } =
     payload;
 
-  await db
-    .update(appRuns)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(appRuns.id, runId));
+  await markRunRunning(runId);
 
   try {
     // 1. Load draft version
