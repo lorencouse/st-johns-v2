@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { workspaceVideos, appRuns } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { videoIngestQueue } from "@/server/jobs/queue";
 import { findActiveRun } from "@/server/jobs/runs";
+import { can } from "@/lib/permissions";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ workspaceId: string; videoId: string }> }
 ) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
 
   // Verify video belongs to workspace via junction table
   const [wsVideo] = await db
@@ -54,7 +51,7 @@ export async function POST(
     .returning();
 
   // Queue job — Whisper fallback only for admins/owners
-  const allowWhisperFallback = ["owner", "admin"].includes(ctx.role);
+  const allowWhisperFallback = can(ctx.role, "admin");
   await videoIngestQueue.add("ingest", {
     workspaceId,
     videoId,

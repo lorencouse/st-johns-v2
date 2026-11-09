@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { workspaceVideos } from "@/server/db/schema";
 import { checkWords, type WordCheckParagraph } from "@/server/ai/word-check";
@@ -17,14 +17,8 @@ const MAX_TOTAL_CHARS = 400_000;
  */
 export async function POST(req: NextRequest, { params }: Params) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit", "You need editing access to check the words.");
   if ("error" in ctx) return ctx.error;
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "You need editing access to check the words." },
-      { status: 403 }
-    );
-  }
 
   const [wsVideo] = await db
     .select({ videoId: workspaceVideos.videoId })

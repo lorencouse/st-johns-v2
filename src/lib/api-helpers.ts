@@ -1,8 +1,9 @@
 import { auth } from "@/server/auth";
-import { db } from "@/server/db";
-import { workspaceMembers, workspaces } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { workspaces } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { findMembership } from "@/lib/workspace";
+import { can, type Permission } from "@/lib/permissions";
 
 export async function requireApiWorkspaceMember(workspaceId: string) {
   const session = await auth();
@@ -10,21 +11,10 @@ export async function requireApiWorkspaceMember(workspaceId: string) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const [membership] = await db
-    .select({
-      workspace: workspaces,
-      role: workspaceMembers.role,
-    })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(
-      and(
-        eq(workspaces.id, workspaceId),
-        eq(workspaceMembers.userId, session.user.id)
-      )
-    )
-    .limit(1);
-
+  const membership = await findMembership(
+    session.user.id,
+    eq(workspaces.id, workspaceId)
+  );
   if (!membership) {
     return { error: NextResponse.json({ error: "Not a workspace member" }, { status: 403 }) };
   }
@@ -35,4 +25,18 @@ export async function requireApiWorkspaceMember(workspaceId: string) {
     role: membership.role,
     userId: session.user.id,
   };
+}
+
+/** Like requireApiWorkspaceMember, but the member's role must also allow `permission`. */
+export async function requireApiWorkspaceRole(
+  workspaceId: string,
+  permission: Permission,
+  message = "Insufficient permissions"
+) {
+  const ctx = await requireApiWorkspaceMember(workspaceId);
+  if ("error" in ctx) return ctx;
+  if (!can(ctx.role, permission)) {
+    return { error: NextResponse.json({ error: message }, { status: 403 }) };
+  }
+  return ctx;
 }

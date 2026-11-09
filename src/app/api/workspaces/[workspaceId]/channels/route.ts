@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
   youtubeChannels,
@@ -14,12 +14,8 @@ export async function POST(
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   const { workspaceId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "admin");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin"].includes(ctx.role)) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
 
   // Owner-only model: syncing requires the caller's own YouTube grant.
   // Without it, the client should send the user through the OAuth flow.

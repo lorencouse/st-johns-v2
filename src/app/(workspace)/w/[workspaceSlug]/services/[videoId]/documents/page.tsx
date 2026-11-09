@@ -12,6 +12,7 @@ import { documentSummary } from "@/server/documents/summary";
 import { hasTranscriptSql } from "@/server/db/transcript-availability";
 import { isStorageConfigured } from "@/server/storage/r2";
 import { DocumentsClient } from "@/components/service/documents-client";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function DocumentsPage({
   const { workspaceSlug, videoId } = await params;
   const { workspace, role } = await requireWorkspaceMember(workspaceSlug);
 
-  if (!["owner", "admin", "editor"].includes(role)) {
+  if (!can(role, "edit")) {
     redirect(`/w/${workspaceSlug}/services/${videoId}`);
   }
 

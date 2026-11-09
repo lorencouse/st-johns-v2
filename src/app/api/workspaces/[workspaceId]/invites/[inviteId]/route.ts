@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { workspaceInvites } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -11,12 +11,8 @@ export async function DELETE(
   }: { params: Promise<{ workspaceId: string; inviteId: string }> }
 ) {
   const { workspaceId, inviteId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "admin", "Forbidden");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin"].includes(ctx.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   await db
     .update(workspaceInvites)

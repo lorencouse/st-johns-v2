@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
   workspaceVideos,
@@ -13,15 +13,8 @@ export async function POST(
   { params }: { params: Promise<{ workspaceId: string; videoId: string }> }
 ) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "Insufficient permissions" },
-      { status: 403 }
-    );
-  }
 
   // Verify video belongs to workspace via junction table
   const [wsVideo] = await db

@@ -1,5 +1,6 @@
 import { requireWorkspaceMember } from "@/lib/workspace";
 import { GeneralSettingsForm } from "@/components/workspace/general-settings-form";
+import { can } from "@/lib/permissions";
 
 export default async function SettingsGeneralPage({
   params,
@@ -9,7 +10,7 @@ export default async function SettingsGeneralPage({
   const { workspaceSlug } = await params;
   const { workspace, role } = await requireWorkspaceMember(workspaceSlug);
 
-  const canEdit = role === "owner" || role === "admin";
+  const canEdit = can(role, "admin");
 
   return (
     <div className="p-6">

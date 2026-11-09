@@ -29,6 +29,7 @@ import {
   locateText,
   type TextRun,
 } from "@/lib/post-spots";
+import { can } from "@/lib/permissions";
 
 type DocNode = Editor["state"]["doc"];
 
@@ -96,8 +97,8 @@ export function StudioClient({
   const [reviewLoading, setReviewLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const canEdit = ["owner", "admin", "editor"].includes(userRole);
-  const canReview = ["owner", "admin", "reviewer"].includes(userRole);
+  const canEdit = can(userRole, "edit");
+  const canReview = can(userRole, "review");
   const fieldsEditable = canEdit && draft?.status === "working";
 
   // Title, intro and summary are edited as plain fields, so they are held in

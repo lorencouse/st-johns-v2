@@ -19,6 +19,7 @@ import { LibraryDashboard } from "@/components/library/library-dashboard";
 import { FILTER_KEYS, type FilterKey } from "@/components/library/library-filters";
 import { parsePage, parsePageSize, resolvePaging } from "@/lib/pagination";
 import { displayStatus } from "@/lib/status-labels";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -249,7 +250,7 @@ export default async function LibraryPage({
       workspaceId={workspace.id}
       workspaceSlug={workspaceSlug}
       workspaceName={workspace.name}
-      canEdit={["owner", "admin", "editor"].includes(role)}
+      canEdit={can(role, "edit")}
       channelCount={channels.length}
       playlists={playlists}
       syncRunId={syncRunId ?? null}

@@ -12,6 +12,7 @@ import { and, count, eq, desc } from "drizzle-orm";
 import { hasTranscriptSql } from "@/server/db/transcript-availability";
 import { notFound } from "next/navigation";
 import { TranscriptReviewClient } from "@/components/library/transcript-review-client";
+import { can } from "@/lib/permissions";
 
 export default async function TranscriptReviewPage({
   params,
@@ -21,7 +22,7 @@ export default async function TranscriptReviewPage({
   const { workspaceSlug, videoId } = await params;
   const { workspace, role } = await requireWorkspaceMember(workspaceSlug);
 
-  if (!["owner", "admin", "editor"].includes(role)) {
+  if (!can(role, "edit")) {
     notFound();
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, count, eq } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, requireApiWorkspaceRole } from "@/lib/api-helpers";
 import {
   MAX_DOCUMENTS_PER_SERVICE,
   documentFormat,
@@ -52,15 +52,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit", "You need editing access to add documents.");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "You need editing access to add documents." },
-      { status: 403 }
-    );
-  }
   if (!isStorageConfigured()) {
     return NextResponse.json(
       { error: "Document upload isn't set up yet. Ask your administrator." },

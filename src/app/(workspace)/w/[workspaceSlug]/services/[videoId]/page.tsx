@@ -9,6 +9,7 @@ import {
 } from "@/server/db/schema";
 import { hasTranscriptSql } from "@/server/db/transcript-availability";
 import { CheckVideoClient } from "@/components/service/check-video-client";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export default async function ServicePage({
       }
       captionsFailed={row.ingestStatus === "ingest_failed"}
       notAiredYet={row.liveStatus === "upcoming" || row.liveStatus === "live"}
-      canEdit={["owner", "admin", "editor"].includes(role)}
+      canEdit={can(role, "edit")}
       projectId={row.projectId}
     />
   );
