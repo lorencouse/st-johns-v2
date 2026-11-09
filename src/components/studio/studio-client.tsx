@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TiptapEditor } from "./tiptap-editor";
+import { useDraftAutosave } from "./use-draft-autosave";
 import { TranscriptPanel } from "./transcript-panel";
 import { TranscriptIssues } from "./transcript-issues";
 import { RunStatus } from "./run-status";
@@ -86,8 +87,6 @@ export function StudioClient({
   documentCount,
 }: StudioClientProps) {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
   const [exportRunId, setExportRunId] = useState<string | null>(null);
   const [lastExportFormat, setLastExportFormat] = useState<
     "html" | "markdown"
@@ -115,46 +114,12 @@ export function StudioClient({
     setSummary(draft?.summary ?? "");
   }, [draft?.id, draft?.title, draft?.intro, draft?.summary, projectTitle]);
 
-  const patchDraft = useCallback(
-    async (fields: Record<string, unknown>) => {
-      if (!draft || !canEdit) return;
-      setSaving(true);
-      try {
-        const res = await fetch(
-          `/api/workspaces/${workspaceId}/projects/${projectId}/drafts`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ draftVersionId: draft.id, ...fields }),
-          }
-        );
-        setSaveFailed(!res.ok);
-      } catch {
-        // Editing continues locally; the next keystroke retries the save.
-        setSaveFailed(true);
-      } finally {
-        setSaving(false);
-      }
-    },
-    [draft, canEdit, workspaceId, projectId]
-  );
-
-  const fieldDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
-    };
-  }, []);
-
-  const saveField = useCallback(
-    (fields: Record<string, unknown>) => {
-      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
-      fieldDebounceRef.current = setTimeout(() => {
-        void patchDraft(fields);
-      }, 800);
-    },
-    [patchDraft]
-  );
+  const { saving, saveFailed, queue: queueSave, isDirty, flush: flushSaves } = useDraftAutosave({
+    workspaceId,
+    projectId,
+    draftId: draft?.id ?? null,
+    enabled: canEdit,
+  });
 
   // --- Check against the documents ---
   // Works on a post that already exists, so documents added after the post
@@ -241,15 +206,8 @@ export function StudioClient({
         if (field === "title") setTitle(next);
         if (field === "intro") setIntro(next);
         if (field === "summary") setSummary(next);
-        // Saved straight away: a debounced save would be cancelled by the
-        // next fix to a different field.
-        if (fieldDebounceRef.current) {
-          clearTimeout(fieldDebounceRef.current);
-          fieldDebounceRef.current = null;
-          void patchDraft({ ...fieldsRef.current, [field]: next });
-        } else {
-          void patchDraft({ [field]: next });
-        }
+        queueSave({ [field]: next });
+        void flushSaves();
         return setSpotState(spot.key, "used");
       }
       const editor = editorRef.current;
@@ -267,7 +225,7 @@ export function StudioClient({
       }
       setSpotState(spot.key, "used");
     },
-    [findInEditor, patchDraft, setSpotState]
+    [findInEditor, flushSaves, queueSave, setSpotState]
   );
 
   const handleShowSpot = useCallback(
@@ -287,10 +245,19 @@ export function StudioClient({
   );
 
   const handleEditorUpdate = useCallback(
-    (json: Record<string, unknown>, text: string) =>
-      patchDraft({ contentJson: json, plainText: text }),
-    [patchDraft]
+    (editor: Editor) =>
+      queueSave(() => ({ contentJson: editor.getJSON(), plainText: editor.getText() })),
+    [queueSave]
   );
+
+  // The publish page reads the saved post as it loads, so it waits for edits
+  // that are still on their way.
+  function handlePublishClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || !isDirty()) return;
+    e.preventDefault();
+    const href = e.currentTarget.href;
+    void flushSaves().finally(() => router.push(href));
+  }
 
   async function handleExport(format: "html" | "markdown") {
     setError("");
@@ -439,7 +406,7 @@ export function StudioClient({
                 readOnly={!fieldsEditable}
                 onChange={(e) => {
                   setTitle(e.target.value);
-                  saveField({ title: e.target.value });
+                  queueSave({ title: e.target.value });
                 }}
                 placeholder="Post title"
                 aria-label="Post title"
@@ -479,7 +446,7 @@ export function StudioClient({
                   className="mt-1"
                   onChange={(value) => {
                     setIntro(value);
-                    saveField({ intro: value });
+                    queueSave({ intro: value });
                   }}
                 />
               </div>
@@ -497,7 +464,7 @@ export function StudioClient({
                   className="mt-1"
                   onChange={(value) => {
                     setSummary(value);
-                    saveField({ summary: value });
+                    queueSave({ summary: value });
                   }}
                 />
               </div>
@@ -642,6 +609,7 @@ export function StudioClient({
             </h3>
             <Link
               href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+              onClick={handlePublishClick}
               className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Publish to Squarespace
@@ -692,6 +660,7 @@ export function StudioClient({
         <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
           <Link
             href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+            onClick={handlePublishClick}
             className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Publish to Squarespace
