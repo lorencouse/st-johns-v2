@@ -20,6 +20,7 @@ import {
 } from "@/server/content/document";
 import type { CaptionSegment } from "@/server/youtube/api";
 import { markRunRunning } from "@/server/jobs/runs";
+import { pickSourceRevision } from "@/server/transcripts/revisions";
 
 export interface DraftGeneratePayload {
   workspaceId: string;
@@ -118,11 +119,7 @@ export async function handleDraftGenerate(payload: DraftGeneratePayload) {
       )
       .orderBy(desc(transcriptRevisions.revisionNumber));
 
-    const sourceRevision =
-      revisions.find((r) => r.revisionKind === "human_edited") ||
-      revisions.find((r) => r.revisionKind === "cleaned") ||
-      revisions.find((r) => r.revisionKind === "normalized") ||
-      revisions[0];
+    const sourceRevision = pickSourceRevision(revisions);
 
     if (!sourceRevision) {
       throw new Error("No transcript revision found. Ingest the video first.");

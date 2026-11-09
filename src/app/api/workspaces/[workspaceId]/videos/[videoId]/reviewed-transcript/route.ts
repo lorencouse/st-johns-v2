@@ -3,10 +3,9 @@ import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { findWorkspaceVideo } from "@/server/services/queries";
 import {
-  transcriptRevisions,
-  transcriptSegments,
-} from "@/server/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+  latestRevisionNumber,
+  saveTranscriptRevision,
+} from "@/server/transcripts/revisions";
 
 export async function POST(
   req: NextRequest,
@@ -35,48 +34,17 @@ export async function POST(
     );
   }
 
-  // Get next revision number (scoped to workspace + video)
-  const [latestRevision] = await db
-    .select({ revisionNumber: transcriptRevisions.revisionNumber })
-    .from(transcriptRevisions)
-    .where(
-      and(
-        eq(transcriptRevisions.videoId, videoId),
-        eq(transcriptRevisions.workspaceId, workspaceId)
-      )
-    )
-    .orderBy(desc(transcriptRevisions.revisionNumber))
-    .limit(1);
-
-  const nextRevNumber = (latestRevision?.revisionNumber ?? 0) + 1;
-
-  // Create human_edited revision
-  const [revision] = await db
-    .insert(transcriptRevisions)
-    .values({
+  // A revision and its segments land together, so a failure cannot leave an
+  // empty human_edited revision for the writer to prefer.
+  const revision = await db.transaction(async (tx) =>
+    saveTranscriptRevision(tx, {
       workspaceId,
       videoId,
       revisionKind: "human_edited",
-      revisionNumber: nextRevNumber,
-      languageCode: "en",
-      segmentCount: segments.length,
-      wordCount: segments.reduce(
-        (acc, s) => acc + s.text.split(/\s+/).length,
-        0
-      ),
+      revisionNumber: (await latestRevisionNumber(tx, workspaceId, videoId)) + 1,
       createdByUserId: ctx.userId,
+      segments: segments.map(({ startMs, endMs, text }) => ({ startMs, endMs, text })),
     })
-    .returning();
-
-  // Store segments
-  await db.insert(transcriptSegments).values(
-    segments.map((s, i) => ({
-      revisionId: revision.id,
-      seq: i,
-      startMs: s.startMs,
-      endMs: s.endMs,
-      text: s.text,
-    }))
   );
 
   return NextResponse.json({
