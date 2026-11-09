@@ -13,7 +13,7 @@ export interface DocBlock {
   timestamp: number | null;
 }
 
-export const HEADING_LEVEL = 2;
+const HEADING_LEVEL = 2;
 
 interface TiptapNode {
   type: string;

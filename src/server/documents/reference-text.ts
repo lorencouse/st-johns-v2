@@ -15,7 +15,7 @@ export interface ReferenceDocument {
  * Roughly 4,000 tokens. Every cleanup chunk carries the reference, so it is
  * kept small enough that a long service stays cheap.
  */
-export const REFERENCE_MAX_CHARS = 16_000;
+const REFERENCE_MAX_CHARS = 16_000;
 
 const KIND_ORDER: Record<string, number> = { bulletin: 0, sermon: 1, other: 2 };
 const KIND_HEADINGS: Record<string, string> = {

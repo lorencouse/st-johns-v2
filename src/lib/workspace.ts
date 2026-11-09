@@ -32,7 +32,3 @@ export async function requireWorkspaceMember(workspaceSlug: string) {
     userId: session.user.id,
   };
 }
-
-export type WorkspaceContext = Awaited<
-  ReturnType<typeof requireWorkspaceMember>
->;

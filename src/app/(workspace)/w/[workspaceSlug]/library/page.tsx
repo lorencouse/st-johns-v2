@@ -125,15 +125,6 @@ export default async function LibraryPage({
     .select({
       total: countExpr(undefined),
       captionsReady: countExpr(captionsReadySql),
-      drafting: countExpr(eq(contentProjects.status, "drafting")),
-      reviewQueue: countExpr(
-        or(
-          eq(contentProjects.status, "ready_for_review"),
-          eq(contentProjects.status, "changes_requested")
-        )
-      ),
-      approved: countExpr(eq(contentProjects.status, "approved")),
-      readyToDraft: countExpr(FILTER_CONDITIONS.ready_to_draft),
       withProject: sql<number>`count(${contentProjects.id})::int`,
       reviewActivity: countExpr(
         or(
@@ -304,10 +295,6 @@ export default async function LibraryPage({
       stats={{
         totalVideos: stats?.total ?? 0,
         captionsReady: stats?.captionsReady ?? 0,
-        readyToDraft: stats?.readyToDraft ?? 0,
-        drafting: stats?.drafting ?? 0,
-        reviewQueue: stats?.reviewQueue ?? 0,
-        approved: stats?.approved ?? 0,
         hasProject: (stats?.withProject ?? 0) > 0,
         hasReviewActivity: (stats?.reviewActivity ?? 0) > 0,
       }}

@@ -46,7 +46,6 @@ interface TranscriptReviewClientProps {
   /** The post already written from this service, if there is one. */
   projectId: string | null;
   videoTitle: string;
-  providerVideoId: string;
   rawSegments: Segment[];
   editableSegments: Segment[];
   /** Uploaded documents whose text could be read. */
@@ -72,7 +71,6 @@ export function TranscriptReviewClient({
   videoId,
   projectId,
   videoTitle,
-  providerVideoId,
   rawSegments,
   editableSegments,
   documentCount,
@@ -512,11 +510,11 @@ export function TranscriptReviewClient({
       )}
 
       {/* Video embed */}
-      {providerVideoId && (
+      {videoId && (
         <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="mx-auto max-w-2xl aspect-video overflow-hidden rounded-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${providerVideoId}`}
+              src={`https://www.youtube.com/embed/${videoId}`}
               title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen

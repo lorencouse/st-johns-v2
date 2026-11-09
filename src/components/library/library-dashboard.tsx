@@ -32,10 +32,6 @@ interface LibraryPlaylist {
 interface LibraryStats {
   totalVideos: number;
   captionsReady: number;
-  readyToDraft: number;
-  drafting: number;
-  reviewQueue: number;
-  approved: number;
   hasProject: boolean;
   hasReviewActivity: boolean;
 }

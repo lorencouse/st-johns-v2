@@ -51,7 +51,6 @@ interface StudioClientProps {
   projectStatus: string;
   videoTitle: string;
   videoId: string;
-  providerVideoId: string;
   draft: {
     id: string;
     versionNumber: number;
@@ -80,7 +79,6 @@ export function StudioClient({
   projectStatus,
   videoTitle,
   videoId,
-  providerVideoId,
   draft,
   transcriptSegments,
   userRole,
@@ -384,10 +382,10 @@ export function StudioClient({
         </h3>
         <p className="mt-1 text-sm font-medium">{videoTitle}</p>
 
-        {providerVideoId && (
+        {videoId && (
           <div className="mt-3 aspect-video overflow-hidden rounded-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${providerVideoId}`}
+              src={`https://www.youtube.com/embed/${videoId}`}
               title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen

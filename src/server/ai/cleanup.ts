@@ -214,7 +214,7 @@ function interpolateDuplicateTimestamps(paragraphs: Paragraph[]): Paragraph[] {
  * pause-based paragraph splitting in mergeIntoParagraphs. Clamping each
  * end to the following start restores real silence gaps.
  */
-export function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] {
+function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] {
   return segments.map((seg, i) => {
     const next = segments[i + 1];
     if (!next || seg.end <= next.start) return seg;
@@ -232,7 +232,7 @@ export function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] 
  * copyrighted besides. Segments only partially overlapping a region are
  * kept, so speech near a boundary survives.
  */
-export function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] {
+function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] {
   const markers = segments.filter((seg) => MUSIC_MARKER_RE.test(seg.text));
   if (markers.length === 0) return segments;
 
@@ -261,7 +261,7 @@ export function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] 
  * artifact only: it is not a substitute for music-section removal, which
  * stripMusicRegions handles for caption tracks that carry [music] markers.
  */
-export function collapseRepeats(segments: CaptionSegment[]): CaptionSegment[] {
+function collapseRepeats(segments: CaptionSegment[]): CaptionSegment[] {
   const normalize = (text: string) =>
     text.trim().toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ");
 

@@ -142,7 +142,6 @@ export default async function TranscriptReviewPage({
       videoId={videoId}
       projectId={project?.id ?? null}
       videoTitle={video.title}
-      providerVideoId={videoId}
       rawSegments={rawSegments}
       editableSegments={editableSegments}
       documentCount={documentCount}
