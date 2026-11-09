@@ -99,6 +99,7 @@ export function StudioClient({
 
   const canEdit = can(userRole, "edit");
   const canReview = can(userRole, "review");
+  const canContribute = can(userRole, "contribute");
   const fieldsEditable = canEdit && draft?.status === "working";
 
   // Title, intro and summary are edited as plain fields, so they are held in
@@ -403,7 +404,7 @@ export function StudioClient({
           </div>
         </div>
 
-        <TranscriptIssues workspaceId={workspaceId} videoId={videoId} />
+        <TranscriptIssues workspaceId={workspaceId} videoId={videoId} canFlag={canContribute} />
       </div>
 
       {/* Center - editor */}
@@ -648,21 +649,25 @@ export function StudioClient({
             <p className="pt-2 text-xs text-zinc-500">Or copy it all at once:</p>
             <CopyHtmlButton workspaceId={workspaceId} projectId={projectId} />
 
-            <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
-              Download a file
-            </h3>
-            <button
-              onClick={() => handleExport("html")}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Export HTML
-            </button>
-            <button
-              onClick={() => handleExport("markdown")}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Export Markdown
-            </button>
+            {canContribute && (
+              <>
+                <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                  Download a file
+                </h3>
+                <button
+                  onClick={() => handleExport("html")}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Export HTML
+                </button>
+                <button
+                  onClick={() => handleExport("markdown")}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Export Markdown
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -677,6 +682,7 @@ export function StudioClient({
             workspaceId={workspaceId}
             projectId={projectId}
             draftVersionId={draft?.id ?? null}
+            canComment={canContribute}
           />
         </div>
       </div>

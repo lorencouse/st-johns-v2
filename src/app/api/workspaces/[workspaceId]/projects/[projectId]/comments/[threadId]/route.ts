@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { commentThreads, comments } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -18,7 +18,7 @@ export async function POST(
   }
 ) {
   const { workspaceId, threadId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "contribute");
   if ("error" in ctx) return ctx.error;
 
   const body = await req.json();
@@ -74,7 +74,7 @@ export async function PATCH(
   }
 ) {
   const { workspaceId, threadId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "contribute");
   if ("error" in ctx) return ctx.error;
 
   await db

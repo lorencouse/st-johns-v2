@@ -16,6 +16,8 @@ interface Issue {
 interface TranscriptIssuesProps {
   workspaceId: string;
   videoId: string;
+  /** Viewers see the issues but cannot flag or resolve them. */
+  canFlag: boolean;
 }
 
 const ISSUE_TYPES = [
@@ -40,6 +42,7 @@ function formatMs(ms: number): string {
 export function TranscriptIssues({
   workspaceId,
   videoId,
+  canFlag,
 }: TranscriptIssuesProps) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -113,15 +116,17 @@ export function TranscriptIssues({
         <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
           Issues ({openIssues.length})
         </h3>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-xs text-blue-500 hover:text-blue-700"
-        >
-          {showForm ? "Cancel" : "Flag issue"}
-        </button>
+        {canFlag && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="text-xs text-blue-500 hover:text-blue-700"
+          >
+            {showForm ? "Cancel" : "Flag issue"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {canFlag && showForm && (
         <form onSubmit={handleSubmit} className="space-y-2">
           <select
             value={issueType}
@@ -158,12 +163,14 @@ export function TranscriptIssues({
         >
           <div className="flex items-center justify-between">
             <span className="font-medium capitalize">{issue.issueType.replace("_", " ")}</span>
-            <button
-              onClick={() => handleResolve(issue.id)}
-              className="text-green-600 hover:text-green-800"
-            >
-              Resolve
-            </button>
+            {canFlag && (
+              <button
+                onClick={() => handleResolve(issue.id)}
+                className="text-green-600 hover:text-green-800"
+              >
+                Resolve
+              </button>
+            )}
           </div>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">{issue.note}</p>
           {issue.anchorStartMs != null && (

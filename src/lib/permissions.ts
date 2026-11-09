@@ -5,6 +5,8 @@
 const PERMISSIONS = {
   /** Change posts, transcripts and documents, and start processing. */
   edit: ["owner", "admin", "editor"],
+  /** Comment, flag transcript issues and queue exports. Viewers only read. */
+  contribute: ["owner", "admin", "editor", "reviewer"],
   /** Approve a post or ask for changes. */
   review: ["owner", "admin", "reviewer"],
   /** Manage the workspace, its channels and its members. */
