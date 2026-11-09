@@ -1,6 +1,11 @@
 import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import {
+  videoChannelJoin,
+  videoPostJoin,
+  videoSourceJoin,
+} from "@/server/services/queries";
+import {
   sourceVideos,
   youtubeChannels,
   youtubePlaylists,
@@ -11,10 +16,7 @@ import {
   integrationConnections,
 } from "@/server/db/schema";
 import { eq, and, or, desc, ilike, isNull, sql, type SQL } from "drizzle-orm";
-import {
-  hasTranscriptSql,
-  captionsReadySql,
-} from "@/server/db/transcript-availability";
+import { captionsReadySql } from "@/server/db/transcript-availability";
 import { LibraryDashboard } from "@/components/library/library-dashboard";
 import { FILTER_KEYS, type FilterKey } from "@/components/library/library-filters";
 import { parsePage, parsePageSize, resolvePaging } from "@/lib/pagination";
@@ -56,6 +58,47 @@ function countExpr(condition: SQL | undefined) {
   return condition
     ? sql<number>`count(*) filter (where ${condition})::int`
     : sql<number>`count(*)::int`;
+}
+
+/** The columns every service card needs. */
+const serviceCardFields = {
+  id: sourceVideos.id,
+  title: sourceVideos.title,
+  thumbnailUrl: sourceVideos.thumbnailUrl,
+  publishedAt: sourceVideos.publishedAt,
+  ingestStatus: workspaceVideos.ingestStatus,
+  captionsReady: captionsReadySql,
+  projectId: contentProjects.id,
+  projectStatus: contentProjects.status,
+  projectPublishedAt: contentProjects.publishedAt,
+};
+
+function toServiceCard(row: {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: Date | null;
+  ingestStatus: string;
+  captionsReady: boolean;
+  projectId: string | null;
+  projectStatus: (typeof contentProjects.$inferSelect)["status"] | null;
+  projectPublishedAt: Date | null;
+}) {
+  return {
+    id: row.id,
+    title: row.title,
+    thumbnailUrl: row.thumbnailUrl,
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    ingestStatus: row.ingestStatus,
+    captionsReady: row.captionsReady,
+    project:
+      row.projectId && row.projectStatus
+        ? {
+            id: row.projectId,
+            status: displayStatus(row.projectStatus, row.projectPublishedAt),
+          }
+        : null,
+  };
 }
 
 export default async function LibraryPage({
@@ -109,15 +152,9 @@ export default async function LibraryPage({
       no_project: countExpr(FILTER_CONDITIONS.no_project),
     })
     .from(workspaceVideos)
-    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
-    .leftJoin(youtubeChannels, eq(youtubeChannels.id, sourceVideos.channelId))
-    .leftJoin(
-      contentProjects,
-      and(
-        eq(contentProjects.sourceVideoId, sourceVideos.id),
-        eq(contentProjects.workspaceId, workspace.id)
-      )
-    )
+    .innerJoin(sourceVideos, videoSourceJoin)
+    .leftJoin(youtubeChannels, videoChannelJoin)
+    .leftJoin(contentProjects, videoPostJoin(workspace.id))
     .where(scopeCondition);
 
   // Checklist and signal stats describe the whole library, so they ignore the
@@ -136,14 +173,8 @@ export default async function LibraryPage({
       ),
     })
     .from(workspaceVideos)
-    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
-    .leftJoin(
-      contentProjects,
-      and(
-        eq(contentProjects.sourceVideoId, sourceVideos.id),
-        eq(contentProjects.workspaceId, workspace.id)
-      )
-    )
+    .innerJoin(sourceVideos, videoSourceJoin)
+    .leftJoin(contentProjects, videoPostJoin(workspace.id))
     .where(workspaceCondition);
 
   const totalForFilter = counts?.[activeFilter] ?? 0;
@@ -155,29 +186,15 @@ export default async function LibraryPage({
 
   const videos = await db
     .select({
-      id: sourceVideos.id,
-      title: sourceVideos.title,
-      thumbnailUrl: sourceVideos.thumbnailUrl,
-      publishedAt: sourceVideos.publishedAt,
-      ingestStatus: workspaceVideos.ingestStatus,
-      hasTranscript: hasTranscriptSql,
+      ...serviceCardFields,
       liveStatus: sourceVideos.liveStatus,
       scheduledStartAt: sourceVideos.scheduledStartAt,
       channelTitle: youtubeChannels.title,
-      projectId: contentProjects.id,
-      projectStatus: contentProjects.status,
-      projectPublishedAt: contentProjects.publishedAt,
     })
     .from(workspaceVideos)
-    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
-    .leftJoin(youtubeChannels, eq(youtubeChannels.id, sourceVideos.channelId))
-    .leftJoin(
-      contentProjects,
-      and(
-        eq(contentProjects.sourceVideoId, sourceVideos.id),
-        eq(contentProjects.workspaceId, workspace.id)
-      )
-    )
+    .innerJoin(sourceVideos, videoSourceJoin)
+    .leftJoin(youtubeChannels, videoChannelJoin)
+    .leftJoin(contentProjects, videoPostJoin(workspace.id))
     .where(and(scopeCondition, FILTER_CONDITIONS[activeFilter]))
     // Secondary key keeps paging stable when videos share a publish date.
     .orderBy(desc(sourceVideos.publishedAt), desc(sourceVideos.id))
@@ -187,26 +204,10 @@ export default async function LibraryPage({
   // The newest service that has finished airing leads the page, whatever
   // search or filter is active, so the next job is always one click away.
   const [latest] = await db
-    .select({
-      id: sourceVideos.id,
-      title: sourceVideos.title,
-      thumbnailUrl: sourceVideos.thumbnailUrl,
-      publishedAt: sourceVideos.publishedAt,
-      ingestStatus: workspaceVideos.ingestStatus,
-      hasTranscript: hasTranscriptSql,
-      projectId: contentProjects.id,
-      projectStatus: contentProjects.status,
-      projectPublishedAt: contentProjects.publishedAt,
-    })
+    .select(serviceCardFields)
     .from(workspaceVideos)
-    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
-    .leftJoin(
-      contentProjects,
-      and(
-        eq(contentProjects.sourceVideoId, sourceVideos.id),
-        eq(contentProjects.workspaceId, workspace.id)
-      )
-    )
+    .innerJoin(sourceVideos, videoSourceJoin)
+    .leftJoin(contentProjects, videoPostJoin(workspace.id))
     .where(and(workspaceCondition, sql`not ${isScheduledSql}`))
     .orderBy(sql`${sourceVideos.publishedAt} desc nulls last`, desc(sourceVideos.id))
     .limit(1);
@@ -255,29 +256,7 @@ export default async function LibraryPage({
       playlists={playlists}
       syncRunId={syncRunId ?? null}
       needsReconnect={needsReconnect}
-      latestService={
-        latest
-          ? {
-              id: latest.id,
-              title: latest.title,
-              thumbnailUrl: latest.thumbnailUrl,
-              publishedAt: latest.publishedAt?.toISOString() ?? null,
-              ingestStatus: latest.hasTranscript
-                ? "captions_available"
-                : latest.ingestStatus,
-              project:
-                latest.projectId && latest.projectStatus
-                  ? {
-                      id: latest.projectId,
-                      status: displayStatus(
-                        latest.projectStatus,
-                        latest.projectPublishedAt
-                      ),
-                    }
-                  : null,
-            }
-          : null
-      }
+      latestService={latest ? toServiceCard(latest) : null}
       activeFilter={activeFilter}
       query={search}
       page={page}
@@ -300,23 +279,10 @@ export default async function LibraryPage({
         hasReviewActivity: (stats?.reviewActivity ?? 0) > 0,
       }}
       videos={videos.map((row) => ({
-        id: row.id,
-        title: row.title,
-        thumbnailUrl: row.thumbnailUrl,
-        publishedAt: row.publishedAt?.toISOString() ?? null,
-        // An existing transcript is the ground truth: report captions as
-        // available even when the stored flag was never advanced.
-        ingestStatus: row.hasTranscript ? "captions_available" : row.ingestStatus,
+        ...toServiceCard(row),
         liveStatus: row.liveStatus,
         scheduledStartAt: row.scheduledStartAt?.toISOString() ?? null,
         channelTitle: row.channelTitle,
-        project:
-          row.projectId && row.projectStatus
-            ? {
-                id: row.projectId,
-                status: displayStatus(row.projectStatus, row.projectPublishedAt),
-              }
-            : null,
       }))}
     />
   );

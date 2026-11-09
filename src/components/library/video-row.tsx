@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VideoActions } from "./video-actions";
 import { continueHref } from "@/lib/service-steps";
-import { postStatusLabel, postStatusTone } from "@/lib/status-labels";
+import { isNotAired, postStatusLabel, postStatusTone } from "@/lib/status-labels";
 
 interface VideoRowProps {
   workspaceSlug: string;
@@ -14,6 +14,7 @@ interface VideoRowProps {
     thumbnailUrl: string | null;
     publishedAt: Date | null;
     ingestStatus: string;
+    captionsReady: boolean;
     liveStatus: string | null;
     scheduledStartAt: string | null;
   };
@@ -35,13 +36,13 @@ export function VideoRow({
   // there is nothing to fetch or review until it does.
   const isUpcoming = video.liveStatus === "upcoming";
   const isLive = video.liveStatus === "live";
-  const isScheduled = isUpcoming || isLive;
+  const isScheduled = isNotAired(video.liveStatus);
 
   function handleClick() {
     if (isScheduled) return;
     router.push(
       continueHref(workspaceSlug, video.id, {
-        captionsReady: video.ingestStatus === "captions_available",
+        captionsReady: video.captionsReady,
         projectId: project?.id ?? null,
         canEdit,
       })
@@ -52,7 +53,7 @@ export function VideoRow({
     ? "Live now"
     : isUpcoming
       ? "Scheduled"
-      : video.ingestStatus === "captions_available"
+      : video.captionsReady
         ? "Captions ready"
         : video.ingestStatus === "ingest_failed"
           ? "Couldn't get captions"
@@ -64,7 +65,7 @@ export function VideoRow({
     ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
     : isUpcoming
       ? "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-      : video.ingestStatus === "captions_available"
+      : video.captionsReady
         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
         : video.ingestStatus === "ingest_failed"
           ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
@@ -110,7 +111,7 @@ export function VideoRow({
                     ? "Open the post"
                     : !canEdit
                       ? "Open the service"
-                      : video.ingestStatus === "captions_available"
+                      : video.captionsReady
                       ? "Check the captions and start the post"
                       : "Start this service when you are ready"}
             </p>
@@ -146,7 +147,7 @@ export function VideoRow({
         <VideoActions
           videoId={video.id}
           workspaceSlug={workspaceSlug}
-          ingestStatus={video.ingestStatus}
+          captionsReady={video.captionsReady}
           isScheduled={isScheduled}
           project={project}
           canEdit={canEdit}

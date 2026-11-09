@@ -4,7 +4,7 @@ import { continueHref, currentServiceStep } from "@/lib/service-steps";
 interface VideoActionsProps {
   videoId: string;
   workspaceSlug: string;
-  ingestStatus: string;
+  captionsReady: boolean;
   /** Premiere or stream that has not finished airing, so nothing to do yet. */
   isScheduled?: boolean;
   project: { id: string; status: string } | null;
@@ -21,7 +21,7 @@ interface VideoActionsProps {
 export function VideoActions({
   videoId,
   workspaceSlug,
-  ingestStatus,
+  captionsReady,
   isScheduled = false,
   project,
   canEdit,
@@ -32,7 +32,7 @@ export function VideoActions({
   }
 
   const progress = {
-    captionsReady: ingestStatus === "captions_available",
+    captionsReady,
     projectId: project?.id ?? null,
     canEdit,
   };

@@ -12,7 +12,7 @@ import { transcriptRevisions, workspaceVideos } from "./schema";
  *
  * Only valid in a query that has `workspace_video` in scope.
  */
-export const hasTranscriptSql = sql<boolean>`exists (
+const hasTranscriptSql = sql<boolean>`exists (
   select 1
   from ${transcriptRevisions} tr
   where tr.workspace_id = ${workspaceVideos.workspaceId}
@@ -20,7 +20,7 @@ export const hasTranscriptSql = sql<boolean>`exists (
     and tr.segment_count > 0
 )`;
 
-/** Same question, for callers that already loaded the two ids. */
+/** Whether captions are ready, by the flag or by an existing transcript. */
 export const captionsReadySql = sql<boolean>`(
   ${workspaceVideos.ingestStatus} = 'captions_available' or ${hasTranscriptSql}
 )`;

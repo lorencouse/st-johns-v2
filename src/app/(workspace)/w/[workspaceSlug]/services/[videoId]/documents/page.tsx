@@ -2,14 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
-import {
-  contentProjects,
-  serviceDocuments,
-  sourceVideos,
-  workspaceVideos,
-} from "@/server/db/schema";
+import { serviceDocuments } from "@/server/db/schema";
 import { documentSummary } from "@/server/documents/summary";
-import { hasTranscriptSql } from "@/server/db/transcript-availability";
+import { loadServiceContext } from "@/server/services/queries";
 import { isStorageConfigured } from "@/server/storage/r2";
 import { DocumentsClient } from "@/components/service/documents-client";
 import { can } from "@/lib/permissions";
@@ -29,30 +24,7 @@ export default async function DocumentsPage({
     redirect(`/w/${workspaceSlug}/services/${videoId}`);
   }
 
-  const [row] = await db
-    .select({
-      title: sourceVideos.title,
-      projectId: contentProjects.id,
-      ingestStatus: workspaceVideos.ingestStatus,
-      hasTranscript: hasTranscriptSql,
-    })
-    .from(workspaceVideos)
-    .innerJoin(sourceVideos, eq(sourceVideos.id, workspaceVideos.videoId))
-    .leftJoin(
-      contentProjects,
-      and(
-        eq(contentProjects.sourceVideoId, sourceVideos.id),
-        eq(contentProjects.workspaceId, workspace.id)
-      )
-    )
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspace.id),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-
+  const row = await loadServiceContext(workspace.id, videoId);
   if (!row) notFound();
 
   const documents = await db
@@ -73,7 +45,7 @@ export default async function DocumentsPage({
       videoId={videoId}
       videoTitle={row.title}
       projectId={row.projectId}
-      captionsReady={row.hasTranscript || row.ingestStatus === "captions_available"}
+      captionsReady={row.captionsReady}
       storageReady={isStorageConfigured()}
       initialDocuments={documents.map((d) => ({
         ...d,
