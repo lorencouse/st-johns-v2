@@ -1,6 +1,7 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
 import { withRetries, type Paragraph } from "./cleanup";
 import { formatTimestamp } from "@/lib/format";
+import { asJsonObject, parseModelJson, usageOf } from "./model-reply";
 import { withReference } from "@/server/documents/reference-text";
 
 /**
@@ -53,38 +54,6 @@ Rules for sections:
 - Base every heading on what is actually said in that part of the transcript. Never invent content.
 
 Return ONLY a JSON object with "title" and "sections". No explanation, no markdown fences.`;
-
-function parseJsonObject(content: string): Record<string, unknown> | null {
-  const tryParse = (text: string) => {
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      // fall through to the next strategy
-    }
-    return null;
-  };
-
-  const direct = tryParse(content);
-  if (direct) return direct;
-
-  const stripped = content.trim();
-  if (stripped.startsWith("```")) {
-    const lines = stripped.split("\n");
-    const inner = lines
-      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
-      .join("\n");
-    const fenced = tryParse(inner);
-    if (fenced) return fenced;
-  }
-
-  const match = content.match(/\{[\s\S]*\}/);
-  if (match) return tryParse(match[0]);
-
-  return null;
-}
 
 export function cleanHeading(raw: string): string | null {
   let heading = raw
@@ -231,9 +200,7 @@ export async function generateStructure(
       "structure"
     );
 
-    const tokensUsed = response.usage?.total_tokens ?? null;
-    const inputTokens = response.usage?.prompt_tokens ?? null;
-    const outputTokens = response.usage?.completion_tokens ?? null;
+    const { tokensUsed, inputTokens, outputTokens } = usageOf(response);
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
@@ -241,7 +208,7 @@ export async function generateStructure(
       return { ...empty, tokensUsed, inputTokens, outputTokens };
     }
 
-    const parsed = parseJsonObject(content);
+    const parsed = parseModelJson(content, "object", asJsonObject);
     if (!parsed) {
       console.error(
         `[ai-structure] Failed to parse response: ${content.slice(0, 200)}`

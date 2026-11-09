@@ -1,4 +1,5 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
+import { asJsonObject, parseModelJson, usageOf } from "./model-reply";
 import type { CaptionSegment } from "@/server/youtube/api";
 import { withReference } from "@/server/documents/reference-text";
 import { formatTimestamp, textWordCount } from "@/lib/format";
@@ -424,55 +425,15 @@ Rules:
 Return a JSON object with one field, "paragraphs": an array with one object per paragraph, each with "timestamp" (seconds as a number) and "text" (the cleaned paragraph text). Include every paragraph of the transcript, in order.
 Return ONLY the JSON object. No explanation, no markdown fences.`;
 
-function parseCleanupResponse(
-  responseText: string,
-  fallback: Paragraph[]
-): Paragraph[] {
-  const tryParse = (text: string): Paragraph[] | null => {
-    try {
-      const parsed = JSON.parse(text);
-      const arr = Array.isArray(parsed)
-        ? parsed
-        : parsed.paragraphs || parsed.data || parsed.result;
-      if (
-        Array.isArray(arr) &&
-        arr.length > 0 &&
-        "timestamp" in arr[0] &&
-        "text" in arr[0]
-      ) {
-        return arr.map((p: { timestamp: number; text: string }) => ({
-          timestamp: Number(p.timestamp),
-          text: String(p.text),
-        }));
-      }
-    } catch {
-      // continue
-    }
-    return null;
-  };
-
-  let result = tryParse(responseText);
-  if (result) return result;
-
-  // Strip markdown fences
-  const stripped = responseText.trim();
-  if (stripped.startsWith("```")) {
-    const lines = stripped.split("\n");
-    const inner = lines
-      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
-      .join("\n");
-    result = tryParse(inner);
-    if (result) return result;
-  }
-
-  // Regex extract [...]
-  const match = responseText.match(/\[[\s\S]*\]/);
-  if (match) {
-    result = tryParse(match[0]);
-    if (result) return result;
-  }
-
-  return fallback;
+function readParagraphs(parsed: unknown): Paragraph[] | null {
+  const body = parsed as Record<string, unknown>;
+  const list = Array.isArray(parsed) ? parsed : body.paragraphs || body.data || body.result;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  if (!("timestamp" in list[0] && "text" in list[0])) return null;
+  return list.map((p: { timestamp: number; text: string }) => ({
+    timestamp: Number(p.timestamp),
+    text: String(p.text),
+  }));
 }
 
 // Process a single chunk of segments through AI cleanup
@@ -496,9 +457,7 @@ async function aiCleanupChunk(
     response_format: { type: "json_object" },
   });
 
-  const tokensUsed = response.usage?.total_tokens ?? null;
-  const inputTokens = response.usage?.prompt_tokens ?? null;
-  const outputTokens = response.usage?.completion_tokens ?? null;
+  const { tokensUsed, inputTokens, outputTokens } = usageOf(response);
   const aiModel = response.model ?? MODEL;
   const content = response.choices[0]?.message?.content;
 
@@ -506,7 +465,7 @@ async function aiCleanupChunk(
     return { paragraphs: fallbackParagraphs, tokensUsed, inputTokens, outputTokens, aiModel };
   }
 
-  const parsed = parseCleanupResponse(content, fallbackParagraphs);
+  const parsed = parseModelJson(content, "array", readParagraphs) ?? fallbackParagraphs;
 
   let paragraphs = parsed.map((p) => ({
     timestamp: p.timestamp,
@@ -758,50 +717,10 @@ const SUMMARY_PROMPT = `You are a blog editor for a church's weekly blog posts. 
 Return a JSON object with "intro" and "summary" fields. Both should be plain text (no HTML).
 Return ONLY the JSON object. No explanation, no markdown fences.`;
 
-function parseSummaryResponse(
-  content: string
-): { intro: string; summary: string } | null {
-  const tryParse = (text: string) => {
-    try {
-      const parsed = JSON.parse(text);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        ("intro" in parsed || "summary" in parsed)
-      ) {
-        return {
-          intro: String(parsed.intro || ""),
-          summary: String(parsed.summary || ""),
-        };
-      }
-    } catch {
-      // continue
-    }
-    return null;
-  };
-
-  let result = tryParse(content);
-  if (result) return result;
-
-  // Strip markdown fences
-  const stripped = content.trim();
-  if (stripped.startsWith("```")) {
-    const lines = stripped.split("\n");
-    const inner = lines
-      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
-      .join("\n");
-    result = tryParse(inner);
-    if (result) return result;
-  }
-
-  // Regex extract {...}
-  const match = content.match(/\{[\s\S]*\}/);
-  if (match) {
-    result = tryParse(match[0]);
-    if (result) return result;
-  }
-
-  return null;
+function readSummary(parsed: unknown): { intro: string; summary: string } | null {
+  const body = asJsonObject(parsed);
+  if (!body || !("intro" in body || "summary" in body)) return null;
+  return { intro: String(body.intro || ""), summary: String(body.summary || "") };
 }
 
 export async function generateSummary(
@@ -830,9 +749,7 @@ export async function generateSummary(
       "summary"
     );
 
-    const tokensUsed = response.usage?.total_tokens ?? null;
-    const inputTokens = response.usage?.prompt_tokens ?? null;
-    const outputTokens = response.usage?.completion_tokens ?? null;
+    const { tokensUsed, inputTokens, outputTokens } = usageOf(response);
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
@@ -840,7 +757,7 @@ export async function generateSummary(
       return { intro: "", summary: "", tokensUsed, inputTokens, outputTokens };
     }
 
-    const parsed = parseSummaryResponse(content);
+    const parsed = parseModelJson(content, "object", readSummary);
     if (!parsed) {
       console.error(
         `[ai-cleanup] Failed to parse summary response: ${content.slice(0, 200)}`
