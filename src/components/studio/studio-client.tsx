@@ -16,11 +16,8 @@ import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 import { postStatusLabel } from "@/lib/status-labels";
 import { ServiceSteps } from "@/components/service/service-steps";
-import {
-  WordCheckPanel,
-  type Spot,
-  type WordCheckStatus,
-} from "@/components/service/word-check-panel";
+import { WordCheckPanel, type Spot } from "@/components/service/word-check-panel";
+import { useWordCheck } from "@/components/service/use-word-check";
 import { serviceStepHref } from "@/lib/service-steps";
 import { applySpot } from "@/lib/word-spots";
 import {
@@ -128,15 +125,12 @@ export function StudioClient({
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
   }, []);
-  const [spots, setSpots] = useState<Spot[]>([]);
-  const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("idle");
   const fieldsRef = useRef({ title, intro, summary });
   useEffect(() => {
     fieldsRef.current = { title, intro, summary };
   }, [title, intro, summary]);
 
-  const runPostCheck = useCallback(async () => {
-    setCheckStatus("checking");
+  const getPostParagraphs = useCallback(() => {
     const paragraphs: Array<{ id: string; text: string }> = [
       { id: "title", text: fieldsRef.current.title },
       { id: "intro", text: fieldsRef.current.intro },
@@ -148,29 +142,15 @@ export function StudioClient({
         paragraphs.push({ id: `b${index}`, text: node.textBetween(0, node.content.size, "\n", "\n") });
       });
     }
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paragraphs: paragraphs.filter((p) => p.text.trim()) }),
-        }
-      );
-      if (!res.ok) throw new Error(String(res.status));
-      const data: { suggestions: Omit<Spot, "key" | "state">[] } = await res.json();
-      setSpots(
-        data.suggestions.map((s, i) => ({ ...s, key: `${i}-${s.paragraphId}`, state: "open" }))
-      );
-      setCheckStatus("done");
-    } catch {
-      setCheckStatus("error");
-    }
-  }, [workspaceId, videoId]);
-
-  const setSpotState = useCallback((key: string, state: Spot["state"]) => {
-    setSpots((prev) => prev.map((s) => (s.key === key ? { ...s, state } : s)));
+    return paragraphs.filter((p) => p.text.trim());
   }, []);
+
+  const { spots, checkStatus, runCheck, setSpotState } = useWordCheck({
+    workspaceId,
+    videoId,
+    getParagraphs: getPostParagraphs,
+    initialStatus: "idle",
+  });
 
   /** Where a spot's words are in the editor now, or null if they are gone. */
   const findInEditor = useCallback((spot: Spot) => {
@@ -392,7 +372,7 @@ export function StudioClient({
               onUse={handleUseSpot}
               onKeep={(spot) => setSpotState(spot.key, "kept")}
               onShow={handleShowSpot}
-              onRetry={() => void runPostCheck()}
+              onRetry={() => void runCheck()}
               subject="this post"
               allDoneMessage="All checked. The post matches your documents."
               className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/10"
