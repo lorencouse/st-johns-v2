@@ -1,5 +1,6 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
-import { formatTimestamp, withRetries, type Paragraph } from "./cleanup";
+import { withRetries, type Paragraph } from "./cleanup";
+import { formatTimestamp } from "@/lib/format";
 import { withReference } from "@/server/documents/reference-text";
 
 /**

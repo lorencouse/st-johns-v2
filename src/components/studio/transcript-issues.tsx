@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatTimestampMs } from "@/lib/format";
 
 interface Issue {
   id: string;
@@ -27,17 +28,6 @@ const ISSUE_TYPES = [
   { value: "speaker", label: "Wrong speaker" },
   { value: "other", label: "Other" },
 ];
-
-function formatMs(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const secs = totalSec % 60;
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
-}
 
 export function TranscriptIssues({
   workspaceId,
@@ -175,8 +165,8 @@ export function TranscriptIssues({
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">{issue.note}</p>
           {issue.anchorStartMs != null && (
             <span className="mt-1 inline-block font-mono text-zinc-500 dark:text-zinc-400">
-              {formatMs(issue.anchorStartMs)}
-              {issue.anchorEndMs != null && ` – ${formatMs(issue.anchorEndMs)}`}
+              {formatTimestampMs(issue.anchorStartMs)}
+              {issue.anchorEndMs != null && ` – ${formatTimestampMs(issue.anchorEndMs)}`}
             </span>
           )}
           <div className="mt-1 text-zinc-500 dark:text-zinc-400">

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatTimestampMs } from "@/lib/format";
+
 interface Segment {
   seq: number;
   startMs: number;
@@ -9,17 +11,6 @@ interface Segment {
 
 interface TranscriptPanelProps {
   segments: Segment[];
-}
-
-function formatMs(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const secs = totalSec % 60;
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
 export function TranscriptPanel({ segments }: TranscriptPanelProps) {
@@ -34,7 +25,7 @@ export function TranscriptPanel({ segments }: TranscriptPanelProps) {
       {segments.map((seg) => (
         <div key={seg.seq} className="group">
           <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
-            {formatMs(seg.startMs)}
+            {formatTimestampMs(seg.startMs)}
           </span>
           <p className="mt-0.5 text-sm leading-relaxed">{seg.text}</p>
         </div>

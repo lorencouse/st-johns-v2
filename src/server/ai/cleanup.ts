@@ -1,6 +1,7 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
 import type { CaptionSegment } from "@/server/youtube/api";
 import { withReference } from "@/server/documents/reference-text";
+import { formatTimestamp, textWordCount } from "@/lib/format";
 
 export interface Paragraph {
   timestamp: number;
@@ -91,7 +92,8 @@ function stripMarkers(text: string): string {
     .trim();
 }
 
-function wordCount(text: string): number {
+/** Counts only tokens with a letter in them, so stray numbers and symbols do not. */
+function spokenWordCount(text: string): number {
   return text.split(/\s+/).filter((w) => /[a-zA-Z]/.test(w)).length;
 }
 
@@ -285,7 +287,7 @@ export function filterNoise(segments: CaptionSegment[]): MarkedSegment[] {
       speakerBreak: SPEAKER_MARKER_RE.test(seg.text),
       text: stripMarkers(seg.text),
     }))
-    .filter((seg) => seg.text && wordCount(seg.text) >= MIN_SEGMENT_WORDS);
+    .filter((seg) => seg.text && spokenWordCount(seg.text) >= MIN_SEGMENT_WORDS);
 }
 
 export function mergeIntoParagraphs(
@@ -342,7 +344,7 @@ export function noAiCleanup(segments: CaptionSegment[]): Paragraph[] {
       timestamp: p.timestamp,
       text: fixPunctuation(removeFillerWords(stripMarkers(p.text))),
     }))
-    .filter((p) => wordCount(p.text) >= MIN_PARAGRAPH_WORDS);
+    .filter((p) => spokenWordCount(p.text) >= MIN_PARAGRAPH_WORDS);
 
   const final: Paragraph[] = [];
   for (let i = 0; i < cleaned.length; i++) {
@@ -353,16 +355,6 @@ export function noAiCleanup(segments: CaptionSegment[]): Paragraph[] {
     );
   }
   return final;
-}
-
-export function formatTimestamp(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
 /**
@@ -390,11 +382,11 @@ export function anchorParagraphTimestamps(
   let sourceWords = 0;
   for (const segment of segments) {
     boundaries.push({ wordsBefore: sourceWords, start: segment.start });
-    sourceWords += wordCount(segment.text);
+    sourceWords += spokenWordCount(segment.text);
   }
   if (sourceWords === 0) return paragraphs;
 
-  const outputWords = paragraphs.reduce((sum, p) => sum + wordCount(p.text), 0);
+  const outputWords = paragraphs.reduce((sum, p) => sum + spokenWordCount(p.text), 0);
   if (outputWords === 0) return paragraphs;
 
   const startAtWord = (target: number) => {
@@ -411,7 +403,7 @@ export function anchorParagraphTimestamps(
   let consumed = 0;
   return paragraphs.map((paragraph) => {
     const target = Math.floor((consumed / outputWords) * sourceWords);
-    consumed += wordCount(paragraph.text);
+    consumed += spokenWordCount(paragraph.text);
     return { timestamp: Math.round(startAtWord(target)), text: paragraph.text };
   });
 }
@@ -540,8 +532,8 @@ async function aiCleanupChunk(
   // filler, so some shrinkage is expected and healthy; losing nearly half the
   // words is not. Throwing here routes the chunk through the normal retry and,
   // if that fails too, the local fallback — which keeps every word.
-  const inputWords = filtered.reduce((sum, seg) => sum + countWords(seg.text), 0);
-  const outputWords = final.reduce((sum, p) => sum + countWords(p.text), 0);
+  const inputWords = filtered.reduce((sum, seg) => sum + textWordCount(seg.text), 0);
+  const outputWords = final.reduce((sum, p) => sum + textWordCount(p.text), 0);
   if (inputWords > 0 && outputWords / inputWords < MIN_RETENTION) {
     throw new Error(
       `Cleanup dropped too much text: kept ${outputWords} of ${inputWords} words ` +
@@ -583,9 +575,6 @@ const MIN_RETENTION = 0.55;
 
 /** More words out than this fraction of words in means content was added. */
 const MAX_GROWTH = 1.2;
-
-const countWords = (text: string): number =>
-  text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
 
 /**
  * Break a segment whose text is too large to survive a single cleanup pass,

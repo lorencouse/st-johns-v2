@@ -1,4 +1,5 @@
-import { formatTimestamp, type Paragraph } from "@/server/ai/cleanup";
+import type { Paragraph } from "@/server/ai/cleanup";
+import { formatTimestamp } from "@/lib/format";
 import type { Section } from "@/server/ai/structure";
 
 /**

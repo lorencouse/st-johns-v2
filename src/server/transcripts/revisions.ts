@@ -5,6 +5,7 @@ import {
   workspaceVideos,
 } from "@/server/db/schema";
 import { and, eq, max } from "drizzle-orm";
+import { textWordCount } from "@/lib/format";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type RevisionKind = (typeof transcriptRevisions.$inferSelect)["revisionKind"];
@@ -62,7 +63,7 @@ export async function saveTranscriptRevision(
       ...values,
       languageCode: "en",
       segmentCount: segments.length,
-      wordCount: segments.reduce((acc, s) => acc + s.text.split(/\s+/).length, 0),
+      wordCount: segments.reduce((sum, s) => sum + textWordCount(s.text), 0),
     })
     .returning();
 
