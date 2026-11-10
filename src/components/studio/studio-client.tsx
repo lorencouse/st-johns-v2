@@ -231,13 +231,14 @@ export function StudioClient({
     [queueSave]
   );
 
+  const publishHref = `/w/${workspaceSlug}/services/${videoId}/publish`;
+
   // The publish page reads the saved post as it loads, so it waits for edits
   // that are still on their way.
   function handlePublishClick(e: React.MouseEvent<HTMLAnchorElement>) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || !isDirty()) return;
     e.preventDefault();
-    const href = e.currentTarget.href;
-    void flushSaves().finally(() => router.push(href));
+    void flushSaves().finally(() => router.push(publishHref));
   }
 
   async function handleExport(format: "html" | "markdown") {
@@ -589,7 +590,7 @@ export function StudioClient({
               Publish
             </SectionLabel>
             <Link
-              href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+              href={publishHref}
               onClick={handlePublishClick}
               className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
@@ -640,7 +641,7 @@ export function StudioClient({
       {draft && (
         <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
           <Link
-            href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+            href={publishHref}
             onClick={handlePublishClick}
             className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
           >
