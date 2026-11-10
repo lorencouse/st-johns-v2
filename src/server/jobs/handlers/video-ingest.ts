@@ -1,12 +1,10 @@
 import { db } from "@/server/db";
 import {
   captionTracks,
-  transcriptRevisions,
-  transcriptSegments,
   workspaceVideos,
   appRuns,
 } from "@/server/db/schema";
-import { eq, and, max } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { type CaptionSegment } from "@/server/youtube/api";
 import {
   fetchPublicCaptions,
@@ -19,6 +17,27 @@ import {
   mergeIntoParagraphs,
   noAiCleanup,
 } from "@/server/ai/cleanup";
+import { markRunRunning } from "@/server/jobs/runs";
+import {
+  latestRevisionNumber,
+  saveTranscriptRevision,
+} from "@/server/transcripts/revisions";
+
+/** How long the last paragraph is taken to run, having no next one to end at. */
+const LAST_PARAGRAPH_MS = 30_000;
+
+/** Paragraphs as stored segments: each one runs until the next begins. */
+function paragraphSegments(paragraphs: Array<{ timestamp: number; text: string }>) {
+  return paragraphs.map((p, i) => {
+    const startMs = Math.round(p.timestamp * 1000);
+    const next = paragraphs[i + 1];
+    return {
+      startMs,
+      endMs: next ? Math.round(next.timestamp * 1000) : startMs + LAST_PARAGRAPH_MS,
+      text: p.text,
+    };
+  });
+}
 
 export interface VideoIngestPayload {
   workspaceId: string;
@@ -33,10 +52,7 @@ export interface VideoIngestPayload {
 export async function handleVideoIngest(payload: VideoIngestPayload) {
   const { workspaceId, videoId, userId, runId } = payload;
 
-  await db
-    .update(appRuns)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(appRuns.id, runId));
+  await markRunRunning(runId);
 
   try {
     // 1. Pull YouTube's own caption track via yt-dlp. This works for any
@@ -121,112 +137,36 @@ export async function handleVideoIngest(payload: VideoIngestPayload) {
           .returning();
       }
 
-      const [{ maxRevision }] = await tx
-        .select({ maxRevision: max(transcriptRevisions.revisionNumber) })
-        .from(transcriptRevisions)
-        .where(
-          and(
-            eq(transcriptRevisions.workspaceId, workspaceId),
-            eq(transcriptRevisions.videoId, videoId)
-          )
-        );
-      const base = maxRevision ?? 0;
+      const base = await latestRevisionNumber(tx, workspaceId, videoId);
+      const revisionOf = { workspaceId, videoId, createdByUserId: userId };
 
-      const [rawRevision] = await tx
-        .insert(transcriptRevisions)
-        .values({
-          workspaceId,
-          videoId,
-          sourceTrackId: track.id,
-          revisionKind: "raw_caption_import",
-          revisionNumber: base + 1,
-          languageCode: "en",
-          segmentCount: segments.length,
-          wordCount: segments.reduce(
-            (acc, s) => acc + s.text.split(/\s+/).length,
-            0
-          ),
-          createdByUserId: userId,
-        })
-        .returning();
+      const rawRevision = await saveTranscriptRevision(tx, {
+        ...revisionOf,
+        sourceTrackId: track.id,
+        revisionKind: "raw_caption_import",
+        revisionNumber: base + 1,
+        segments: segments.map((seg) => ({
+          startMs: Math.round(seg.start * 1000),
+          endMs: Math.round(seg.end * 1000),
+          text: seg.text,
+        })),
+      });
 
-      if (segments.length > 0) {
-        await tx.insert(transcriptSegments).values(
-          segments.map((seg, i) => ({
-            revisionId: rawRevision.id,
-            seq: i,
-            startMs: Math.round(seg.start * 1000),
-            endMs: Math.round(seg.end * 1000),
-            text: seg.text,
-          }))
-        );
-      }
+      const normalizedRevision = await saveTranscriptRevision(tx, {
+        ...revisionOf,
+        basedOnRevisionId: rawRevision.id,
+        revisionKind: "normalized",
+        revisionNumber: base + 2,
+        segments: paragraphSegments(paragraphs),
+      });
 
-      const [normalizedRevision] = await tx
-        .insert(transcriptRevisions)
-        .values({
-          workspaceId,
-          videoId,
-          basedOnRevisionId: rawRevision.id,
-          revisionKind: "normalized",
-          revisionNumber: base + 2,
-          languageCode: "en",
-          segmentCount: paragraphs.length,
-          wordCount: paragraphs.reduce(
-            (acc, p) => acc + p.text.split(/\s+/).length,
-            0
-          ),
-          createdByUserId: userId,
-        })
-        .returning();
-
-      if (paragraphs.length > 0) {
-        await tx.insert(transcriptSegments).values(
-          paragraphs.map((p, i) => ({
-            revisionId: normalizedRevision.id,
-            seq: i,
-            startMs: Math.round(p.timestamp * 1000),
-            endMs:
-              i + 1 < paragraphs.length
-                ? Math.round(paragraphs[i + 1].timestamp * 1000)
-                : Math.round(p.timestamp * 1000) + 30000,
-            text: p.text,
-          }))
-        );
-      }
-
-      const [cleanedRevision] = await tx
-        .insert(transcriptRevisions)
-        .values({
-          workspaceId,
-          videoId,
-          basedOnRevisionId: normalizedRevision.id,
-          revisionKind: "cleaned",
-          revisionNumber: base + 3,
-          languageCode: "en",
-          segmentCount: cleanedParagraphs.length,
-          wordCount: cleanedParagraphs.reduce(
-            (acc, p) => acc + p.text.split(/\s+/).length,
-            0
-          ),
-          createdByUserId: userId,
-        })
-        .returning();
-
-      if (cleanedParagraphs.length > 0) {
-        await tx.insert(transcriptSegments).values(
-          cleanedParagraphs.map((p, i) => ({
-            revisionId: cleanedRevision.id,
-            seq: i,
-            startMs: Math.round(p.timestamp * 1000),
-            endMs:
-              i + 1 < cleanedParagraphs.length
-                ? Math.round(cleanedParagraphs[i + 1].timestamp * 1000)
-                : Math.round(p.timestamp * 1000) + 30000,
-            text: p.text,
-          }))
-        );
-      }
+      const cleanedRevision = await saveTranscriptRevision(tx, {
+        ...revisionOf,
+        basedOnRevisionId: normalizedRevision.id,
+        revisionKind: "cleaned",
+        revisionNumber: base + 3,
+        segments: paragraphSegments(cleanedParagraphs),
+      });
 
       // Upsert rather than update: if the junction row is missing the update
       // would silently touch nothing, leaving a transcribed video looking

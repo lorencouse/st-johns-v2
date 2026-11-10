@@ -8,6 +8,7 @@ import {
   auditEvents,
 } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
+import { can } from "@/lib/permissions";
 
 // POST: Request review or submit a decision
 export async function POST(
@@ -39,7 +40,7 @@ export async function POST(
   }
 
   if (action === "request_review") {
-    if (!["owner", "admin", "editor"].includes(ctx.role)) {
+    if (!can(ctx.role, "edit")) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 
@@ -81,7 +82,7 @@ export async function POST(
   }
 
   if (action === "approve" || action === "request_changes") {
-    if (!["owner", "admin", "reviewer"].includes(ctx.role)) {
+    if (!can(ctx.role, "review")) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 

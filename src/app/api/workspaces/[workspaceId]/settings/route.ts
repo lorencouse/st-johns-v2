@@ -1,35 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/server/auth";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
-import { workspaces, workspaceMembers } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { workspaces } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { workspaceId } = await params;
-
-  // Only owners and admins can update settings
-  const [member] = await db
-    .select({ role: workspaceMembers.role })
-    .from(workspaceMembers)
-    .where(
-      and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, session.user.id)
-      )
-    )
-    .limit(1);
-
-  if (!member || !["owner", "admin"].includes(member.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const ctx = await requireApiWorkspaceRole(workspaceId, "admin", "Forbidden");
+  if ("error" in ctx) return ctx.error;
 
   const body = await req.json();
   const updates: Record<string, unknown> = {};

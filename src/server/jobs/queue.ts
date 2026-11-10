@@ -7,7 +7,6 @@ const redisConnection = {
 export const JOB_QUEUES = {
   CHANNEL_SYNC: "channel-sync",
   VIDEO_INGEST: "video-ingest",
-  TRANSCRIPT_PROCESS: "transcript-process",
   DRAFT_GENERATE: "draft-generate",
   EXPORT_RENDER: "export-render",
 } as const;
@@ -21,7 +20,7 @@ function parseConnection() {
   };
 }
 
-export function createQueue(name: string) {
+function createQueue(name: string) {
   return new Queue(name, {
     connection: parseConnection(),
     defaultJobOptions: {
@@ -46,6 +45,5 @@ export function createWorker<T>(
 
 export const channelSyncQueue = createQueue(JOB_QUEUES.CHANNEL_SYNC);
 export const videoIngestQueue = createQueue(JOB_QUEUES.VIDEO_INGEST);
-export const transcriptProcessQueue = createQueue(JOB_QUEUES.TRANSCRIPT_PROCESS);
 export const draftGenerateQueue = createQueue(JOB_QUEUES.DRAFT_GENERATE);
 export const exportRenderQueue = createQueue(JOB_QUEUES.EXPORT_RENDER);

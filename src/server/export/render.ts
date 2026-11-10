@@ -1,4 +1,4 @@
-import { formatTimestamp } from "@/server/ai/cleanup";
+import { formatTimestamp } from "@/lib/format";
 import {
   TRANSCRIPT_DISCLAIMER,
   type DocBlock,

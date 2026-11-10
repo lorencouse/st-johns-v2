@@ -1,38 +1,37 @@
 import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { workspaceMembers, workspaces } from "@/server/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
-export async function requireWorkspaceMember(workspaceSlug: string) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/signin");
-
-  const result = await db
+/** The user's membership of the workspace `match` picks out, if they have one. */
+export async function findMembership(userId: string, match: SQL) {
+  const [membership] = await db
     .select({
       workspace: workspaces,
       role: workspaceMembers.role,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(
-      and(
-        eq(workspaces.slug, workspaceSlug),
-        eq(workspaceMembers.userId, session.user.id)
-      )
-    )
+    .where(and(match, eq(workspaceMembers.userId, userId)))
     .limit(1);
+  return membership;
+}
 
-  if (result.length === 0) redirect("/app");
+export async function requireWorkspaceMember(workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/signin");
+
+  const membership = await findMembership(
+    session.user.id,
+    eq(workspaces.slug, workspaceSlug)
+  );
+  if (!membership) redirect("/app");
 
   return {
     session,
-    workspace: result[0].workspace,
-    role: result[0].role,
+    workspace: membership.workspace,
+    role: membership.role,
     userId: session.user.id,
   };
 }
-
-export type WorkspaceContext = Awaited<
-  ReturnType<typeof requireWorkspaceMember>
->;

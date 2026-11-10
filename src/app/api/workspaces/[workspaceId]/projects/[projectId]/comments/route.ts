@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
   commentThreads,
@@ -95,7 +95,7 @@ export async function POST(
   }: { params: Promise<{ workspaceId: string; projectId: string }> }
 ) {
   const { workspaceId, projectId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "contribute");
   if ("error" in ctx) return ctx.error;
 
   const body = await req.json();

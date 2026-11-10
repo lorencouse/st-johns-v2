@@ -37,11 +37,3 @@ export function assertUsableSpeech(
 
   return speech;
 }
-
-/** How many segments assertUsableSpeech would discard, for logging. */
-export function countNonSpeech(
-  segments: CaptionSegment[],
-  kept: CaptionSegment[]
-): number {
-  return segments.length - kept.length;
-}

@@ -1,5 +1,6 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
 import { withRetries } from "./cleanup";
+import { asJsonObject, parseModelJson } from "./model-reply";
 
 /**
  * "Check the words": compares the transcript with the service's sermon and
@@ -73,19 +74,7 @@ export function parseWordCheck(
   content: string,
   paragraphs: WordCheckParagraph[]
 ): WordSuggestion[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) return [];
-    try {
-      parsed = JSON.parse(match[0]);
-    } catch {
-      return [];
-    }
-  }
-  const list = (parsed as { suggestions?: unknown })?.suggestions;
+  const list = parseModelJson(content, "object", asJsonObject)?.suggestions;
   if (!Array.isArray(list)) return [];
 
   const out: WordSuggestion[] = [];

@@ -9,7 +9,9 @@ const create = mock(async () => ({
   usage: { total_tokens: 10, prompt_tokens: 5, completion_tokens: 5 },
   choices: [{ message: { content: modelReply() } }],
 }));
+const realOpenAi = await import("@/server/ai/openai");
 mock.module("@/server/ai/openai", () => ({
+  ...realOpenAi,
   getOpenAIClient: () => ({ chat: { completions: { create } } }),
   MODEL: "test-model",
 }));

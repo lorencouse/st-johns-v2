@@ -1,41 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
+import { findWorkspaceVideo } from "@/server/services/queries";
 import {
-  workspaceVideos,
-  transcriptRevisions,
-  transcriptSegments,
-} from "@/server/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+  latestRevisionNumber,
+  saveTranscriptRevision,
+} from "@/server/transcripts/revisions";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ workspaceId: string; videoId: string }> }
 ) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
 
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "Insufficient permissions" },
-      { status: 403 }
-    );
-  }
-
-  // Verify video belongs to workspace via junction table
-  const [wsVideo] = await db
-    .select()
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-
-  if (!wsVideo) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Video not found" }, { status: 404 });
   }
 
@@ -54,48 +34,17 @@ export async function POST(
     );
   }
 
-  // Get next revision number (scoped to workspace + video)
-  const [latestRevision] = await db
-    .select({ revisionNumber: transcriptRevisions.revisionNumber })
-    .from(transcriptRevisions)
-    .where(
-      and(
-        eq(transcriptRevisions.videoId, videoId),
-        eq(transcriptRevisions.workspaceId, workspaceId)
-      )
-    )
-    .orderBy(desc(transcriptRevisions.revisionNumber))
-    .limit(1);
-
-  const nextRevNumber = (latestRevision?.revisionNumber ?? 0) + 1;
-
-  // Create human_edited revision
-  const [revision] = await db
-    .insert(transcriptRevisions)
-    .values({
+  // A revision and its segments land together, so a failure cannot leave an
+  // empty human_edited revision for the writer to prefer.
+  const revision = await db.transaction(async (tx) =>
+    saveTranscriptRevision(tx, {
       workspaceId,
       videoId,
       revisionKind: "human_edited",
-      revisionNumber: nextRevNumber,
-      languageCode: "en",
-      segmentCount: segments.length,
-      wordCount: segments.reduce(
-        (acc, s) => acc + s.text.split(/\s+/).length,
-        0
-      ),
+      revisionNumber: (await latestRevisionNumber(tx, workspaceId, videoId)) + 1,
       createdByUserId: ctx.userId,
+      segments: segments.map(({ startMs, endMs, text }) => ({ startMs, endMs, text })),
     })
-    .returning();
-
-  // Store segments
-  await db.insert(transcriptSegments).values(
-    segments.map((s, i) => ({
-      revisionId: revision.id,
-      seq: i,
-      startMs: s.startMs,
-      endMs: s.endMs,
-      text: s.text,
-    }))
   );
 
   return NextResponse.json({

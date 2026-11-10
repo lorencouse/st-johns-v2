@@ -4,6 +4,7 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import { contentProjects, draftVersions } from "@/server/db/schema";
 import { PublishClient } from "@/components/service/publish-client";
+import { can } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ export default async function PublishPage({
       projectId={project.id}
       title={draft.title}
       excerpt={(draft.summary || draft.intro || "").trim()}
-      canEdit={["owner", "admin", "editor"].includes(role)}
+      canEdit={can(role, "edit")}
       publishedAt={project.publishedAt?.toISOString() ?? null}
       publishedUrl={project.publishedUrl}
     />

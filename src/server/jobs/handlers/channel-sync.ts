@@ -18,6 +18,7 @@ import {
   fetchPlaylistVideos,
   fetchVideoDetails,
 } from "@/server/youtube/api";
+import { markRunRunning } from "@/server/jobs/runs";
 
 export interface ChannelSyncPayload {
   workspaceId: string;
@@ -29,11 +30,7 @@ export interface ChannelSyncPayload {
 export async function handleChannelSync(payload: ChannelSyncPayload) {
   const { workspaceId, integrationConnectionId, userId, runId } = payload;
 
-  // Mark run as running
-  await db
-    .update(appRuns)
-    .set({ status: "running", startedAt: new Date() })
-    .where(eq(appRuns.id, runId));
+  await markRunRunning(runId);
 
   try {
     const [connection] = await db

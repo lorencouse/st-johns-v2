@@ -1,9 +1,10 @@
 import { db } from "@/server/db";
-import { appRuns, integrationConnections } from "@/server/db/schema";
+import { integrationConnections } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { channelSyncQueue } from "@/server/jobs/queue";
 import { findActiveRun } from "@/server/jobs/runs";
 import type { ChannelSyncPayload } from "@/server/jobs/handlers/channel-sync";
+import { createRun } from "@/server/jobs/runs";
 
 interface EnqueueChannelSyncInput {
   workspaceId: string;
@@ -51,17 +52,13 @@ export async function enqueueChannelSync({
       .where(eq(integrationConnections.id, connection.id));
   }
 
-  const [run] = await db
-    .insert(appRuns)
-    .values({
-      workspaceId,
-      kind: "channel_sync",
-      status: "queued",
-      subjectType: "youtube_channel",
-      triggeredByUserId: userId,
-      inputJson: inputJson ?? {},
-    })
-    .returning();
+  const run = await createRun({
+    workspaceId,
+    kind: "channel_sync",
+    subjectType: "youtube_channel",
+    userId,
+    inputJson: inputJson ?? {},
+  });
 
   const payload: ChannelSyncPayload = {
     workspaceId,

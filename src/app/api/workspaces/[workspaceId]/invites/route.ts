@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { normalizeEmail } from "@/lib/security";
 import { db } from "@/server/db";
 import { workspaceInvites } from "@/server/db/schema";
@@ -10,15 +10,8 @@ export async function POST(
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   const { workspaceId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "admin", "Only owners and admins can invite members");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "Only owners and admins can invite members" },
-      { status: 403 }
-    );
-  }
 
   const body = await req.json();
   const email =

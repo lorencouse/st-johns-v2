@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, count, eq } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, requireApiWorkspaceRole } from "@/lib/api-helpers";
 import {
   MAX_DOCUMENTS_PER_SERVICE,
   documentFormat,
@@ -10,26 +10,13 @@ import {
   storedContentType,
 } from "@/lib/documents";
 import { db } from "@/server/db";
-import { auditEvents, serviceDocuments, workspaceVideos } from "@/server/db/schema";
+import { auditEvents, serviceDocuments } from "@/server/db/schema";
 import { extractDocumentText } from "@/server/documents/extract";
 import { documentSummary } from "@/server/documents/summary";
 import { deleteObject, isStorageConfigured, putObject } from "@/server/storage/r2";
+import { findWorkspaceVideo } from "@/server/services/queries";
 
 type Params = { params: Promise<{ workspaceId: string; videoId: string }> };
-
-async function videoInWorkspace(workspaceId: string, videoId: string) {
-  const [row] = await db
-    .select({ videoId: workspaceVideos.videoId })
-    .from(workspaceVideos)
-    .where(
-      and(
-        eq(workspaceVideos.workspaceId, workspaceId),
-        eq(workspaceVideos.videoId, videoId)
-      )
-    )
-    .limit(1);
-  return !!row;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { workspaceId, videoId } = await params;
@@ -52,22 +39,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { workspaceId, videoId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit", "You need editing access to add documents.");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "You need editing access to add documents." },
-      { status: 403 }
-    );
-  }
   if (!isStorageConfigured()) {
     return NextResponse.json(
       { error: "Document upload isn't set up yet. Ask your administrator." },
       { status: 503 }
     );
   }
-  if (!(await videoInWorkspace(workspaceId, videoId))) {
+  if (!(await findWorkspaceVideo(workspaceId, videoId))) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 

@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TiptapEditor } from "./tiptap-editor";
+import { useDraftAutosave } from "./use-draft-autosave";
 import { TranscriptPanel } from "./transcript-panel";
 import { TranscriptIssues } from "./transcript-issues";
 import { RunStatus } from "./run-status";
@@ -15,11 +16,8 @@ import { AutoTextarea } from "./auto-textarea";
 import { TRANSCRIPT_DISCLAIMER } from "@/lib/disclaimer";
 import { postStatusLabel } from "@/lib/status-labels";
 import { ServiceSteps } from "@/components/service/service-steps";
-import {
-  WordCheckPanel,
-  type Spot,
-  type WordCheckStatus,
-} from "@/components/service/word-check-panel";
+import { WordCheckPanel, type Spot } from "@/components/service/word-check-panel";
+import { useWordCheck } from "@/components/service/use-word-check";
 import { serviceStepHref } from "@/lib/service-steps";
 import { applySpot } from "@/lib/word-spots";
 import {
@@ -29,6 +27,8 @@ import {
   locateText,
   type TextRun,
 } from "@/lib/post-spots";
+import { can } from "@/lib/permissions";
+import { SectionLabel } from "@/components/ui/section-label";
 
 type DocNode = Editor["state"]["doc"];
 
@@ -51,7 +51,6 @@ interface StudioClientProps {
   projectStatus: string;
   videoTitle: string;
   videoId: string;
-  providerVideoId: string;
   draft: {
     id: string;
     versionNumber: number;
@@ -80,15 +79,12 @@ export function StudioClient({
   projectStatus,
   videoTitle,
   videoId,
-  providerVideoId,
   draft,
   transcriptSegments,
   userRole,
   documentCount,
 }: StudioClientProps) {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
   const [exportRunId, setExportRunId] = useState<string | null>(null);
   const [lastExportFormat, setLastExportFormat] = useState<
     "html" | "markdown"
@@ -98,8 +94,9 @@ export function StudioClient({
   const [reviewLoading, setReviewLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const canEdit = ["owner", "admin", "editor"].includes(userRole);
-  const canReview = ["owner", "admin", "reviewer"].includes(userRole);
+  const canEdit = can(userRole, "edit");
+  const canReview = can(userRole, "review");
+  const canContribute = can(userRole, "contribute");
   const fieldsEditable = canEdit && draft?.status === "working";
 
   // Title, intro and summary are edited as plain fields, so they are held in
@@ -115,46 +112,12 @@ export function StudioClient({
     setSummary(draft?.summary ?? "");
   }, [draft?.id, draft?.title, draft?.intro, draft?.summary, projectTitle]);
 
-  const patchDraft = useCallback(
-    async (fields: Record<string, unknown>) => {
-      if (!draft || !canEdit) return;
-      setSaving(true);
-      try {
-        const res = await fetch(
-          `/api/workspaces/${workspaceId}/projects/${projectId}/drafts`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ draftVersionId: draft.id, ...fields }),
-          }
-        );
-        setSaveFailed(!res.ok);
-      } catch {
-        // Editing continues locally; the next keystroke retries the save.
-        setSaveFailed(true);
-      } finally {
-        setSaving(false);
-      }
-    },
-    [draft, canEdit, workspaceId, projectId]
-  );
-
-  const fieldDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
-    };
-  }, []);
-
-  const saveField = useCallback(
-    (fields: Record<string, unknown>) => {
-      if (fieldDebounceRef.current) clearTimeout(fieldDebounceRef.current);
-      fieldDebounceRef.current = setTimeout(() => {
-        void patchDraft(fields);
-      }, 800);
-    },
-    [patchDraft]
-  );
+  const { saving, saveFailed, queue: queueSave, isDirty, flush: flushSaves } = useDraftAutosave({
+    workspaceId,
+    projectId,
+    draftId: draft?.id ?? null,
+    enabled: canEdit,
+  });
 
   // --- Check against the documents ---
   // Works on a post that already exists, so documents added after the post
@@ -163,15 +126,12 @@ export function StudioClient({
   const handleEditorReady = useCallback((editor: Editor | null) => {
     editorRef.current = editor;
   }, []);
-  const [spots, setSpots] = useState<Spot[]>([]);
-  const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("idle");
   const fieldsRef = useRef({ title, intro, summary });
   useEffect(() => {
     fieldsRef.current = { title, intro, summary };
   }, [title, intro, summary]);
 
-  const runPostCheck = useCallback(async () => {
-    setCheckStatus("checking");
+  const getPostParagraphs = useCallback(() => {
     const paragraphs: Array<{ id: string; text: string }> = [
       { id: "title", text: fieldsRef.current.title },
       { id: "intro", text: fieldsRef.current.intro },
@@ -183,29 +143,15 @@ export function StudioClient({
         paragraphs.push({ id: `b${index}`, text: node.textBetween(0, node.content.size, "\n", "\n") });
       });
     }
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paragraphs: paragraphs.filter((p) => p.text.trim()) }),
-        }
-      );
-      if (!res.ok) throw new Error(String(res.status));
-      const data: { suggestions: Omit<Spot, "key" | "state">[] } = await res.json();
-      setSpots(
-        data.suggestions.map((s, i) => ({ ...s, key: `${i}-${s.paragraphId}`, state: "open" }))
-      );
-      setCheckStatus("done");
-    } catch {
-      setCheckStatus("error");
-    }
-  }, [workspaceId, videoId]);
-
-  const setSpotState = useCallback((key: string, state: Spot["state"]) => {
-    setSpots((prev) => prev.map((s) => (s.key === key ? { ...s, state } : s)));
+    return paragraphs.filter((p) => p.text.trim());
   }, []);
+
+  const { spots, checkStatus, runCheck, setSpotState } = useWordCheck({
+    workspaceId,
+    videoId,
+    getParagraphs: getPostParagraphs,
+    initialStatus: "idle",
+  });
 
   /** Where a spot's words are in the editor now, or null if they are gone. */
   const findInEditor = useCallback((spot: Spot) => {
@@ -241,15 +187,8 @@ export function StudioClient({
         if (field === "title") setTitle(next);
         if (field === "intro") setIntro(next);
         if (field === "summary") setSummary(next);
-        // Saved straight away: a debounced save would be cancelled by the
-        // next fix to a different field.
-        if (fieldDebounceRef.current) {
-          clearTimeout(fieldDebounceRef.current);
-          fieldDebounceRef.current = null;
-          void patchDraft({ ...fieldsRef.current, [field]: next });
-        } else {
-          void patchDraft({ [field]: next });
-        }
+        queueSave({ [field]: next });
+        void flushSaves();
         return setSpotState(spot.key, "used");
       }
       const editor = editorRef.current;
@@ -267,7 +206,7 @@ export function StudioClient({
       }
       setSpotState(spot.key, "used");
     },
-    [findInEditor, patchDraft, setSpotState]
+    [findInEditor, flushSaves, queueSave, setSpotState]
   );
 
   const handleShowSpot = useCallback(
@@ -287,10 +226,20 @@ export function StudioClient({
   );
 
   const handleEditorUpdate = useCallback(
-    (json: Record<string, unknown>, text: string) =>
-      patchDraft({ contentJson: json, plainText: text }),
-    [patchDraft]
+    (editor: Editor) =>
+      queueSave(() => ({ contentJson: editor.getJSON(), plainText: editor.getText() })),
+    [queueSave]
   );
+
+  const publishHref = `/w/${workspaceSlug}/services/${videoId}/publish`;
+
+  // The publish page reads the saved post as it loads, so it waits for edits
+  // that are still on their way.
+  function handlePublishClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || !isDirty()) return;
+    e.preventDefault();
+    void flushSaves().finally(() => router.push(publishHref));
+  }
 
   async function handleExport(format: "html" | "markdown") {
     setError("");
@@ -379,15 +328,15 @@ export function StudioClient({
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       {/* Left rail - transcript. On phones it moves below the post. */}
       <div className="order-3 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-r dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Video
-        </h3>
+        </SectionLabel>
         <p className="mt-1 text-sm font-medium">{videoTitle}</p>
 
-        {providerVideoId && (
+        {videoId && (
           <div className="mt-3 aspect-video overflow-hidden rounded-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${providerVideoId}`}
+              src={`https://www.youtube.com/embed/${videoId}`}
               title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen
@@ -396,15 +345,15 @@ export function StudioClient({
         )}
 
         <div className="mt-4">
-          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+          <SectionLabel>
             Transcript
-          </h3>
+          </SectionLabel>
           <div className="mt-2 max-h-64 overflow-y-auto lg:max-h-[calc(100vh-500px)]">
             <TranscriptPanel segments={transcriptSegments} />
           </div>
         </div>
 
-        <TranscriptIssues workspaceId={workspaceId} videoId={videoId} />
+        <TranscriptIssues workspaceId={workspaceId} videoId={videoId} canFlag={canContribute} />
       </div>
 
       {/* Center - editor */}
@@ -425,7 +374,7 @@ export function StudioClient({
               onUse={handleUseSpot}
               onKeep={(spot) => setSpotState(spot.key, "kept")}
               onShow={handleShowSpot}
-              onRetry={() => void runPostCheck()}
+              onRetry={() => void runCheck()}
               subject="this post"
               allDoneMessage="All checked. The post matches your documents."
               className="mb-6 rounded-xl border border-blue-200 bg-blue-50/40 px-4 py-3 dark:border-blue-900/60 dark:bg-blue-950/10"
@@ -439,7 +388,7 @@ export function StudioClient({
                 readOnly={!fieldsEditable}
                 onChange={(e) => {
                   setTitle(e.target.value);
-                  saveField({ title: e.target.value });
+                  queueSave({ title: e.target.value });
                 }}
                 placeholder="Post title"
                 aria-label="Post title"
@@ -468,9 +417,9 @@ export function StudioClient({
             <div className="mt-6 space-y-6">
               {/* Intro */}
               <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <h3 className="text-xs font-semibold uppercase text-blue-600 dark:text-blue-400">
+                <SectionLabel tone="accent">
                   Introduction
-                </h3>
+                </SectionLabel>
                 <AutoTextarea
                   value={intro}
                   fieldId="intro"
@@ -479,16 +428,16 @@ export function StudioClient({
                   className="mt-1"
                   onChange={(value) => {
                     setIntro(value);
-                    saveField({ intro: value });
+                    queueSave({ intro: value });
                   }}
                 />
               </div>
 
               {/* Summary */}
               <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
-                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                <SectionLabel>
                   Summary
-                </h3>
+                </SectionLabel>
                 <AutoTextarea
                   value={summary}
                   fieldId="summary"
@@ -497,7 +446,7 @@ export function StudioClient({
                   className="mt-1"
                   onChange={(value) => {
                     setSummary(value);
-                    saveField({ summary: value });
+                    queueSave({ summary: value });
                   }}
                 />
               </div>
@@ -508,9 +457,9 @@ export function StudioClient({
                 readers will see above the transcript.
               */}
               <div className="rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
-                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                <SectionLabel>
                   Transcript notice (added on export)
-                </h3>
+                </SectionLabel>
                 <p className="mt-1 text-sm italic text-zinc-500">
                   {TRANSCRIPT_DISCLAIMER}
                 </p>
@@ -582,9 +531,9 @@ export function StudioClient({
 
       {/* Right panel - actions */}
       <div className="order-2 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Details
-        </h3>
+        </SectionLabel>
         <dl className="mt-3 space-y-3 text-sm">
           <div>
             <dt className="text-zinc-500 dark:text-zinc-400">Status</dt>
@@ -600,9 +549,9 @@ export function StudioClient({
 
         {/* Review Actions */}
         <div className="mt-6 space-y-2">
-          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+          <SectionLabel>
             Approval (optional)
-          </h3>
+          </SectionLabel>
 
           {canEdit && projectStatus === "drafting" && draft && (
             <button
@@ -637,11 +586,12 @@ export function StudioClient({
         {/* Export Actions */}
         {draft && (
           <div id="publish" className="mt-6 scroll-mt-4 space-y-2">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               Publish
-            </h3>
+            </SectionLabel>
             <Link
-              href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+              href={publishHref}
+              onClick={handlePublishClick}
               className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Publish to Squarespace
@@ -649,21 +599,25 @@ export function StudioClient({
             <p className="pt-2 text-xs text-zinc-500">Or copy it all at once:</p>
             <CopyHtmlButton workspaceId={workspaceId} projectId={projectId} />
 
-            <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
-              Download a file
-            </h3>
-            <button
-              onClick={() => handleExport("html")}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Export HTML
-            </button>
-            <button
-              onClick={() => handleExport("markdown")}
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              Export Markdown
-            </button>
+            {canContribute && (
+              <>
+                <SectionLabel className="pt-3">
+                  Download a file
+                </SectionLabel>
+                <button
+                  onClick={() => handleExport("html")}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Export HTML
+                </button>
+                <button
+                  onClick={() => handleExport("markdown")}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Export Markdown
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -678,6 +632,7 @@ export function StudioClient({
             workspaceId={workspaceId}
             projectId={projectId}
             draftVersionId={draft?.id ?? null}
+            canComment={canContribute}
           />
         </div>
       </div>
@@ -686,7 +641,8 @@ export function StudioClient({
       {draft && (
         <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
           <Link
-            href={`/w/${workspaceSlug}/services/${videoId}/publish`}
+            href={publishHref}
+            onClick={handlePublishClick}
             className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Publish to Squarespace

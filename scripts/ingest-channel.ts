@@ -40,6 +40,7 @@ import {
   fetchChannelPlaylists,
 } from "@/server/youtube/api";
 import { handleVideoIngest } from "@/server/jobs/handlers/video-ingest";
+import { createRun } from "@/server/jobs/runs";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -286,18 +287,14 @@ async function main() {
 
   for (const [i, v] of queue.entries()) {
     const label = `[${i + 1}/${queue.length}] ${v.title.slice(0, 60)}`;
-    const [run] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId: workspace.id,
-        kind: "video_ingest",
-        status: "queued",
-        subjectType: "video",
-        subjectId: v.youtubeId,
-        triggeredByUserId: user.id,
-        inputJson: { videoId: v.youtubeId },
-      })
-      .returning();
+    const run = await createRun({
+      workspaceId: workspace.id,
+      kind: "video_ingest",
+      subjectType: "source_video",
+      subjectId: v.youtubeId,
+      userId: user.id,
+      inputJson: { videoId: v.youtubeId },
+    });
 
     try {
       await handleVideoIngest({

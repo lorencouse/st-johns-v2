@@ -3,14 +3,15 @@ import { db } from "@/server/db";
 import {
   contentProjects,
   draftVersions,
-  serviceDocuments,
   sourceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
-import { and, count, eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { StudioClient } from "@/components/studio/studio-client";
+import { pickSourceRevision } from "@/server/transcripts/revisions";
+import { countReadableDocuments } from "@/server/services/queries";
 
 export default async function StudioPage({
   params,
@@ -85,11 +86,7 @@ export default async function StudioPage({
     )
     .orderBy(desc(transcriptRevisions.revisionNumber));
 
-  const sourceRevision =
-    revisions.find((r) => r.revisionKind === "human_edited") ||
-    revisions.find((r) => r.revisionKind === "cleaned") ||
-    revisions.find((r) => r.revisionKind === "normalized") ||
-    revisions[0];
+  const sourceRevision = pickSourceRevision(revisions);
 
   let segments: Array<{
     seq: number;
@@ -114,16 +111,7 @@ export default async function StudioPage({
   }
 
   // Documents with readable text, for checking the post against them.
-  const [{ value: documentCount }] = await db
-    .select({ value: count() })
-    .from(serviceDocuments)
-    .where(
-      and(
-        eq(serviceDocuments.workspaceId, workspace.id),
-        eq(serviceDocuments.sourceVideoId, result.videoId),
-        eq(serviceDocuments.textStatus, "done")
-      )
-    );
+  const documentCount = await countReadableDocuments(workspace.id, result.videoId);
 
   return (
     <StudioClient
@@ -134,7 +122,6 @@ export default async function StudioPage({
       projectStatus={result.project.status}
       videoTitle={result.videoTitle}
       videoId={result.videoId}
-      providerVideoId={result.videoId}
       draft={draft}
       transcriptSegments={segments}
       userRole={role}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Check, FileSearch, Loader2, RotateCw } from "lucide-react";
 import { formatTimestampMs } from "@/lib/format";
 
-export type SpotState = "open" | "used" | "kept" | "gone";
+type SpotState = "open" | "used" | "kept" | "gone";
 
 export interface Spot {
   key: string;

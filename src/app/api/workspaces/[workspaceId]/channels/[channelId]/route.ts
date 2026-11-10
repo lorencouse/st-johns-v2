@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import {
   sourceVideos,
@@ -19,15 +19,8 @@ export async function DELETE(
   }
 ) {
   const { workspaceId, channelId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "admin");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "Insufficient permissions" },
-      { status: 403 }
-    );
-  }
 
   const [channel] = await db
     .select({ id: workspaceChannels.channelId })

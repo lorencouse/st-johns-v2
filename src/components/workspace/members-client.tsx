@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { InviteMemberModal } from "./invite-member-modal";
+import { can } from "@/lib/permissions";
 
 interface Member {
   id: string;
@@ -34,7 +35,7 @@ export function MembersClient({
 }: MembersClientProps) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const router = useRouter();
-  const canInvite = ["owner", "admin"].includes(userRole);
+  const canInvite = can(userRole, "admin");
 
   async function handleRevokeInvite(inviteId: string) {
     await fetch(`/api/workspaces/${workspaceId}/invites/${inviteId}`, {

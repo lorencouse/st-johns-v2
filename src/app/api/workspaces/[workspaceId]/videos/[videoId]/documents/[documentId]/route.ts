@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceMember, requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { auditEvents, serviceDocuments } from "@/server/db/schema";
 import { deleteObject, getObject, isStorageConfigured } from "@/server/storage/r2";
@@ -55,14 +55,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { workspaceId, videoId, documentId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit", "You need editing access to remove documents.");
   if ("error" in ctx) return ctx.error;
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json(
-      { error: "You need editing access to remove documents." },
-      { status: 403 }
-    );
-  }
 
   if (!isStorageConfigured()) {
     return NextResponse.json({ error: "Document storage isn't set up." }, { status: 503 });

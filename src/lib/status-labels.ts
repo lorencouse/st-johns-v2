@@ -59,3 +59,8 @@ export function displayStatus(
 ): string {
   return publishedAt ? "published" : status;
 }
+
+/** A scheduled premiere or a stream still going: there is no finished audio yet. */
+export function isNotAired(liveStatus: string | null): boolean {
+  return liveStatus === "upcoming" || liveStatus === "live";
+}

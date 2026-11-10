@@ -3,7 +3,7 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import {
   TimestampedHeading,
   TimestampedParagraph,
@@ -11,7 +11,8 @@ import {
 
 interface TiptapEditorProps {
   content: Record<string, unknown>;
-  onUpdate?: (json: Record<string, unknown>, text: string) => void;
+  /** Called on every change; the parent decides when to save. */
+  onUpdate?: (editor: Editor) => void;
   editable?: boolean;
   /** Hands the editor to the parent, for changes made from outside it. */
   onReady?: (editor: Editor | null) => void;
@@ -23,8 +24,6 @@ export function TiptapEditor({
   editable = true,
   onReady,
 }: TiptapEditorProps) {
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const editor = useEditor({
     immediatelyRender: false,
     // Re-render on cursor moves too, so the toolbar's active state and
@@ -48,20 +47,8 @@ export function TiptapEditor({
           "prose dark:prose-invert prose-base max-w-none focus:outline-none min-h-[200px]",
       },
     },
-    onUpdate: ({ editor }) => {
-      if (!onUpdate) return;
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onUpdate(editor.getJSON(), editor.getText());
-      }, 1000);
-    },
+    onUpdate: ({ editor }) => onUpdate?.(editor),
   });
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     onReady?.(editor);

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
-import { contentProjects, appRuns } from "@/server/db/schema";
+import { contentProjects } from "@/server/db/schema";
 import { and, eq } from "drizzle-orm";
 import { exportRenderQueue } from "@/server/jobs/queue";
+import { createRun } from "@/server/jobs/runs";
 
 export async function POST(
   req: NextRequest,
@@ -12,7 +13,7 @@ export async function POST(
   }: { params: Promise<{ workspaceId: string; projectId: string }> }
 ) {
   const { workspaceId, projectId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "contribute");
   if ("error" in ctx) return ctx.error;
 
   const body = await req.json();
@@ -40,18 +41,14 @@ export async function POST(
     );
   }
 
-  const [run] = await db
-    .insert(appRuns)
-    .values({
-      workspaceId,
-      kind: "export_render",
-      status: "queued",
-      subjectType: "content_project",
-      subjectId: projectId,
-      triggeredByUserId: ctx.userId,
-      inputJson: { format },
-    })
-    .returning();
+  const run = await createRun({
+    workspaceId,
+    kind: "export_render",
+    subjectType: "content_project",
+    subjectId: projectId,
+    userId: ctx.userId,
+    inputJson: { format },
+  });
 
   await exportRenderQueue.add("export", {
     workspaceId,

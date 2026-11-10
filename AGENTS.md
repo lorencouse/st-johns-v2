@@ -53,11 +53,11 @@ back on, so:
 
 **Data model:** Workspace -> Channel -> Video -> Transcript Revision -> Content Project -> Draft Version -> Export Artifact
 
-**Processing:** BullMQ workers started via `instrumentation.ts`. Queues: channel-sync, video-ingest, transcript-process, draft-generate, export-render.
+**Processing:** BullMQ workers started via `instrumentation.ts`. Queues: channel-sync, video-ingest, draft-generate, export-render.
 
 **Auth:** Google OAuth with YouTube scopes via Auth.js v5. Workspace membership with roles: owner, admin, editor, reviewer, viewer.
 
-**Routing:** Workspace-scoped: `/w/:workspaceSlug/library|projects|review|settings`
+**Routing:** Workspace-scoped: `/w/:workspaceSlug/library|services/:videoId|projects/:projectId|settings`
 
 ## UI formatting rules
 
@@ -89,4 +89,11 @@ REDIS_URL=redis://...
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+YOUTUBE_API_KEY=...
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=...
+WHISPER_MODEL_PATH=models/ggml-large-v3-turbo.bin
+WHISPER_TMP_DIR=.tmp
 ```

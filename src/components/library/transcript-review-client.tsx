@@ -19,11 +19,9 @@ import { BlockControls } from "@/components/library/block-controls";
 import { ServiceSteps } from "@/components/service/service-steps";
 import { serviceStepHref } from "@/lib/service-steps";
 import { applySpot } from "@/lib/word-spots";
-import {
-  WordCheckPanel,
-  type Spot,
-  type WordCheckStatus,
-} from "@/components/service/word-check-panel";
+import { WordCheckPanel, type Spot } from "@/components/service/word-check-panel";
+import { useWordCheck } from "@/components/service/use-word-check";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Segment {
   seq: number;
@@ -46,7 +44,6 @@ interface TranscriptReviewClientProps {
   /** The post already written from this service, if there is one. */
   projectId: string | null;
   videoTitle: string;
-  providerVideoId: string;
   rawSegments: Segment[];
   editableSegments: Segment[];
   /** Uploaded documents whose text could be read. */
@@ -72,7 +69,6 @@ export function TranscriptReviewClient({
   videoId,
   projectId,
   videoTitle,
-  providerVideoId,
   rawSegments,
   editableSegments,
   documentCount,
@@ -91,8 +87,6 @@ export function TranscriptReviewClient({
   const [error, setError] = useState("");
   // Phones show one column at a time; wider screens show both side by side.
   const [mobilePane, setMobilePane] = useState<"edit" | "youtube">("edit");
-  const [spots, setSpots] = useState<Spot[]>([]);
-  const [checkStatus, setCheckStatus] = useState<WordCheckStatus>("checking");
   const checkStartedRef = useRef(false);
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
@@ -197,41 +191,22 @@ export function TranscriptReviewClient({
 
   // Compare the words with the sermon and bulletin. It runs by itself when
   // the page opens, on the transcript as it stands, and only suggests.
-  const runWordCheck = useCallback(async () => {
-    setCheckStatus("checking");
-    try {
-      const res = await fetch(
-        `/api/workspaces/${workspaceId}/videos/${videoId}/word-check`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            paragraphs: blocksRef.current.map((b) => ({ id: b.id, text: b.text })),
-          }),
-        }
-      );
-      if (!res.ok) throw new Error(String(res.status));
-      const data: {
-        suggestions: Omit<Spot, "key" | "state">[];
-      } = await res.json();
-      setSpots(
-        data.suggestions.map((s, i) => ({ ...s, key: `${i}-${s.paragraphId}`, state: "open" }))
-      );
-      setCheckStatus("done");
-    } catch {
-      setCheckStatus("error");
-    }
-  }, [workspaceId, videoId]);
+  const getBlockParagraphs = useCallback(
+    () => blocksRef.current.map((b) => ({ id: b.id, text: b.text })),
+    []
+  );
+  const { spots, checkStatus, runCheck, setSpotState } = useWordCheck({
+    workspaceId,
+    videoId,
+    getParagraphs: getBlockParagraphs,
+    initialStatus: "checking",
+  });
 
   useEffect(() => {
     if (projectId || documentCount === 0 || checkStartedRef.current) return;
     checkStartedRef.current = true;
-    void runWordCheck();
-  }, [projectId, documentCount, runWordCheck]);
-
-  const setSpotState = useCallback((key: string, state: Spot["state"]) => {
-    setSpots((prev) => prev.map((s) => (s.key === key ? { ...s, state } : s)));
-  }, []);
+    void runCheck();
+  }, [projectId, documentCount, runCheck]);
 
   const focusBlock = useCallback((id: string) => {
     setMobilePane("edit");
@@ -507,16 +482,16 @@ export function TranscriptReviewClient({
           onUse={handleUseSpot}
           onKeep={(spot) => setSpotState(spot.key, "kept")}
           onShow={(spot) => focusBlock(spot.paragraphId)}
-          onRetry={() => void runWordCheck()}
+          onRetry={() => void runCheck()}
         />
       )}
 
       {/* Video embed */}
-      {providerVideoId && (
+      {videoId && (
         <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="mx-auto max-w-2xl aspect-video overflow-hidden rounded-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${providerVideoId}`}
+              src={`https://www.youtube.com/embed/${videoId}`}
               title={`Video: ${videoTitle}`}
               className="h-full w-full"
               allowFullScreen
@@ -560,9 +535,9 @@ export function TranscriptReviewClient({
           className={`${mobilePane === "youtube" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2 md:border-r md:border-zinc-200 md:dark:border-zinc-800`}
         >
           <div className="border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               From YouTube ({visibleRaw.length} lines)
-            </h3>
+            </SectionLabel>
           </div>
           <div
             ref={originalPaneRef}
@@ -596,9 +571,9 @@ export function TranscriptReviewClient({
           className={`${mobilePane === "edit" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2`}
         >
           <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               Your version ({visibleBlocks.length} paragraphs)
-            </h3>
+            </SectionLabel>
             <button
               onClick={handleUndo}
               disabled={!canUndo}

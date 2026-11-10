@@ -1,6 +1,8 @@
 import { getOpenAIClient, MODEL, samplingParams } from "./openai";
+import { asJsonObject, parseModelJson, usageOf } from "./model-reply";
 import type { CaptionSegment } from "@/server/youtube/api";
 import { withReference } from "@/server/documents/reference-text";
+import { formatTimestamp, textWordCount } from "@/lib/format";
 
 export interface Paragraph {
   timestamp: number;
@@ -91,7 +93,8 @@ function stripMarkers(text: string): string {
     .trim();
 }
 
-function wordCount(text: string): number {
+/** Counts only tokens with a letter in them, so stray numbers and symbols do not. */
+function spokenWordCount(text: string): number {
   return text.split(/\s+/).filter((w) => /[a-zA-Z]/.test(w)).length;
 }
 
@@ -214,7 +217,7 @@ function interpolateDuplicateTimestamps(paragraphs: Paragraph[]): Paragraph[] {
  * pause-based paragraph splitting in mergeIntoParagraphs. Clamping each
  * end to the following start restores real silence gaps.
  */
-export function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] {
+function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] {
   return segments.map((seg, i) => {
     const next = segments[i + 1];
     if (!next || seg.end <= next.start) return seg;
@@ -232,7 +235,7 @@ export function normalizeOverlaps(segments: CaptionSegment[]): CaptionSegment[] 
  * copyrighted besides. Segments only partially overlapping a region are
  * kept, so speech near a boundary survives.
  */
-export function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] {
+function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] {
   const markers = segments.filter((seg) => MUSIC_MARKER_RE.test(seg.text));
   if (markers.length === 0) return segments;
 
@@ -261,7 +264,7 @@ export function stripMusicRegions(segments: CaptionSegment[]): CaptionSegment[] 
  * artifact only: it is not a substitute for music-section removal, which
  * stripMusicRegions handles for caption tracks that carry [music] markers.
  */
-export function collapseRepeats(segments: CaptionSegment[]): CaptionSegment[] {
+function collapseRepeats(segments: CaptionSegment[]): CaptionSegment[] {
   const normalize = (text: string) =>
     text.trim().toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ");
 
@@ -285,7 +288,7 @@ export function filterNoise(segments: CaptionSegment[]): MarkedSegment[] {
       speakerBreak: SPEAKER_MARKER_RE.test(seg.text),
       text: stripMarkers(seg.text),
     }))
-    .filter((seg) => seg.text && wordCount(seg.text) >= MIN_SEGMENT_WORDS);
+    .filter((seg) => seg.text && spokenWordCount(seg.text) >= MIN_SEGMENT_WORDS);
 }
 
 export function mergeIntoParagraphs(
@@ -342,7 +345,7 @@ export function noAiCleanup(segments: CaptionSegment[]): Paragraph[] {
       timestamp: p.timestamp,
       text: fixPunctuation(removeFillerWords(stripMarkers(p.text))),
     }))
-    .filter((p) => wordCount(p.text) >= MIN_PARAGRAPH_WORDS);
+    .filter((p) => spokenWordCount(p.text) >= MIN_PARAGRAPH_WORDS);
 
   const final: Paragraph[] = [];
   for (let i = 0; i < cleaned.length; i++) {
@@ -353,16 +356,6 @@ export function noAiCleanup(segments: CaptionSegment[]): Paragraph[] {
     );
   }
   return final;
-}
-
-export function formatTimestamp(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
 /**
@@ -390,11 +383,11 @@ export function anchorParagraphTimestamps(
   let sourceWords = 0;
   for (const segment of segments) {
     boundaries.push({ wordsBefore: sourceWords, start: segment.start });
-    sourceWords += wordCount(segment.text);
+    sourceWords += spokenWordCount(segment.text);
   }
   if (sourceWords === 0) return paragraphs;
 
-  const outputWords = paragraphs.reduce((sum, p) => sum + wordCount(p.text), 0);
+  const outputWords = paragraphs.reduce((sum, p) => sum + spokenWordCount(p.text), 0);
   if (outputWords === 0) return paragraphs;
 
   const startAtWord = (target: number) => {
@@ -411,7 +404,7 @@ export function anchorParagraphTimestamps(
   let consumed = 0;
   return paragraphs.map((paragraph) => {
     const target = Math.floor((consumed / outputWords) * sourceWords);
-    consumed += wordCount(paragraph.text);
+    consumed += spokenWordCount(paragraph.text);
     return { timestamp: Math.round(startAtWord(target)), text: paragraph.text };
   });
 }
@@ -432,55 +425,15 @@ Rules:
 Return a JSON object with one field, "paragraphs": an array with one object per paragraph, each with "timestamp" (seconds as a number) and "text" (the cleaned paragraph text). Include every paragraph of the transcript, in order.
 Return ONLY the JSON object. No explanation, no markdown fences.`;
 
-function parseCleanupResponse(
-  responseText: string,
-  fallback: Paragraph[]
-): Paragraph[] {
-  const tryParse = (text: string): Paragraph[] | null => {
-    try {
-      const parsed = JSON.parse(text);
-      const arr = Array.isArray(parsed)
-        ? parsed
-        : parsed.paragraphs || parsed.data || parsed.result;
-      if (
-        Array.isArray(arr) &&
-        arr.length > 0 &&
-        "timestamp" in arr[0] &&
-        "text" in arr[0]
-      ) {
-        return arr.map((p: { timestamp: number; text: string }) => ({
-          timestamp: Number(p.timestamp),
-          text: String(p.text),
-        }));
-      }
-    } catch {
-      // continue
-    }
-    return null;
-  };
-
-  let result = tryParse(responseText);
-  if (result) return result;
-
-  // Strip markdown fences
-  const stripped = responseText.trim();
-  if (stripped.startsWith("```")) {
-    const lines = stripped.split("\n");
-    const inner = lines
-      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
-      .join("\n");
-    result = tryParse(inner);
-    if (result) return result;
-  }
-
-  // Regex extract [...]
-  const match = responseText.match(/\[[\s\S]*\]/);
-  if (match) {
-    result = tryParse(match[0]);
-    if (result) return result;
-  }
-
-  return fallback;
+function readParagraphs(parsed: unknown): Paragraph[] | null {
+  const body = parsed as Record<string, unknown>;
+  const list = Array.isArray(parsed) ? parsed : body.paragraphs || body.data || body.result;
+  if (!Array.isArray(list) || list.length === 0) return null;
+  if (!("timestamp" in list[0] && "text" in list[0])) return null;
+  return list.map((p: { timestamp: number; text: string }) => ({
+    timestamp: Number(p.timestamp),
+    text: String(p.text),
+  }));
 }
 
 // Process a single chunk of segments through AI cleanup
@@ -504,9 +457,7 @@ async function aiCleanupChunk(
     response_format: { type: "json_object" },
   });
 
-  const tokensUsed = response.usage?.total_tokens ?? null;
-  const inputTokens = response.usage?.prompt_tokens ?? null;
-  const outputTokens = response.usage?.completion_tokens ?? null;
+  const { tokensUsed, inputTokens, outputTokens } = usageOf(response);
   const aiModel = response.model ?? MODEL;
   const content = response.choices[0]?.message?.content;
 
@@ -514,7 +465,7 @@ async function aiCleanupChunk(
     return { paragraphs: fallbackParagraphs, tokensUsed, inputTokens, outputTokens, aiModel };
   }
 
-  const parsed = parseCleanupResponse(content, fallbackParagraphs);
+  const parsed = parseModelJson(content, "array", readParagraphs) ?? fallbackParagraphs;
 
   let paragraphs = parsed.map((p) => ({
     timestamp: p.timestamp,
@@ -540,8 +491,8 @@ async function aiCleanupChunk(
   // filler, so some shrinkage is expected and healthy; losing nearly half the
   // words is not. Throwing here routes the chunk through the normal retry and,
   // if that fails too, the local fallback — which keeps every word.
-  const inputWords = filtered.reduce((sum, seg) => sum + countWords(seg.text), 0);
-  const outputWords = final.reduce((sum, p) => sum + countWords(p.text), 0);
+  const inputWords = filtered.reduce((sum, seg) => sum + textWordCount(seg.text), 0);
+  const outputWords = final.reduce((sum, p) => sum + textWordCount(p.text), 0);
   if (inputWords > 0 && outputWords / inputWords < MIN_RETENTION) {
     throw new Error(
       `Cleanup dropped too much text: kept ${outputWords} of ${inputWords} words ` +
@@ -583,9 +534,6 @@ const MIN_RETENTION = 0.55;
 
 /** More words out than this fraction of words in means content was added. */
 const MAX_GROWTH = 1.2;
-
-const countWords = (text: string): number =>
-  text.trim().length === 0 ? 0 : text.trim().split(/\s+/).length;
 
 /**
  * Break a segment whose text is too large to survive a single cleanup pass,
@@ -769,50 +717,10 @@ const SUMMARY_PROMPT = `You are a blog editor for a church's weekly blog posts. 
 Return a JSON object with "intro" and "summary" fields. Both should be plain text (no HTML).
 Return ONLY the JSON object. No explanation, no markdown fences.`;
 
-function parseSummaryResponse(
-  content: string
-): { intro: string; summary: string } | null {
-  const tryParse = (text: string) => {
-    try {
-      const parsed = JSON.parse(text);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        ("intro" in parsed || "summary" in parsed)
-      ) {
-        return {
-          intro: String(parsed.intro || ""),
-          summary: String(parsed.summary || ""),
-        };
-      }
-    } catch {
-      // continue
-    }
-    return null;
-  };
-
-  let result = tryParse(content);
-  if (result) return result;
-
-  // Strip markdown fences
-  const stripped = content.trim();
-  if (stripped.startsWith("```")) {
-    const lines = stripped.split("\n");
-    const inner = lines
-      .slice(1, lines[lines.length - 1].trim() === "```" ? -1 : undefined)
-      .join("\n");
-    result = tryParse(inner);
-    if (result) return result;
-  }
-
-  // Regex extract {...}
-  const match = content.match(/\{[\s\S]*\}/);
-  if (match) {
-    result = tryParse(match[0]);
-    if (result) return result;
-  }
-
-  return null;
+function readSummary(parsed: unknown): { intro: string; summary: string } | null {
+  const body = asJsonObject(parsed);
+  if (!body || !("intro" in body || "summary" in body)) return null;
+  return { intro: String(body.intro || ""), summary: String(body.summary || "") };
 }
 
 export async function generateSummary(
@@ -841,9 +749,7 @@ export async function generateSummary(
       "summary"
     );
 
-    const tokensUsed = response.usage?.total_tokens ?? null;
-    const inputTokens = response.usage?.prompt_tokens ?? null;
-    const outputTokens = response.usage?.completion_tokens ?? null;
+    const { tokensUsed, inputTokens, outputTokens } = usageOf(response);
     const content = response.choices[0]?.message?.content;
 
     if (!content) {
@@ -851,7 +757,7 @@ export async function generateSummary(
       return { intro: "", summary: "", tokensUsed, inputTokens, outputTokens };
     }
 
-    const parsed = parseSummaryResponse(content);
+    const parsed = parseModelJson(content, "object", readSummary);
     if (!parsed) {
       console.error(
         `[ai-cleanup] Failed to parse summary response: ${content.slice(0, 200)}`

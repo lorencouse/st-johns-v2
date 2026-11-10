@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { parsePublishedUrl } from "@/lib/published-url";
 import { db } from "@/server/db";
 import { auditEvents, contentProjects } from "@/server/db/schema";
@@ -8,16 +8,12 @@ import { auditEvents, contentProjects } from "@/server/db/schema";
 type Params = { params: Promise<{ workspaceId: string; projectId: string }> };
 
 async function loadEditableProject(workspaceId: string, projectId: string) {
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(
+    workspaceId,
+    "edit",
+    "You need editing access to change this."
+  );
   if ("error" in ctx) return { error: ctx.error };
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return {
-      error: NextResponse.json(
-        { error: "You need editing access to change this." },
-        { status: 403 }
-      ),
-    };
-  }
   const [project] = await db
     .select({ id: contentProjects.id, title: contentProjects.title })
     .from(contentProjects)

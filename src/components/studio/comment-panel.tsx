@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Comment {
   id: string;
@@ -23,12 +24,15 @@ interface CommentPanelProps {
   workspaceId: string;
   projectId: string;
   draftVersionId: string | null;
+  /** Viewers read the thread but cannot add to it or resolve it. */
+  canComment: boolean;
 }
 
 export function CommentPanel({
   workspaceId,
   projectId,
   draftVersionId,
+  canComment,
 }: CommentPanelProps) {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -129,9 +133,9 @@ export function CommentPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Comments ({openThreads.length})
-        </h3>
+        </SectionLabel>
         {resolvedThreads.length > 0 && (
           <button
             onClick={() => setShowResolved(!showResolved)}
@@ -143,24 +147,26 @@ export function CommentPanel({
       </div>
 
       {/* New comment form */}
-      <form onSubmit={handleNewThread}>
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment..."
-          rows={2}
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
-        />
-        {newComment.trim() && (
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            Comment
-          </button>
-        )}
-      </form>
+      {canComment && (
+        <form onSubmit={handleNewThread}>
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment..."
+            rows={2}
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800"
+          />
+          {newComment.trim() && (
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              Comment
+            </button>
+          )}
+        </form>
+      )}
 
       {/* Thread list */}
       <div className="space-y-3">
@@ -187,7 +193,7 @@ export function CommentPanel({
               </div>
             ))}
 
-            {!thread.resolvedAt && (
+            {canComment && !thread.resolvedAt && (
               <div className="mt-2 flex gap-2">
                 {replyingTo === thread.id ? (
                   <div className="flex-1">

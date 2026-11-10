@@ -13,3 +13,9 @@ export function formatTimestamp(seconds: number): string {
 export function formatTimestampMs(ms: number): string {
   return formatTimestamp(ms / 1000);
 }
+
+/** How many whitespace-separated words the text has. */
+export function textWordCount(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}

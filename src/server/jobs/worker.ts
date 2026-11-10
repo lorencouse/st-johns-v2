@@ -65,7 +65,7 @@ function attachFailureHandler<T extends BaseJobPayload>(
 }
 
 /** Fail any run that has sat in queued/running long past every retry window. */
-export async function sweepStaleRuns() {
+async function sweepStaleRuns() {
   const cutoff = new Date(Date.now() - STALE_RUN_MINUTES * 60 * 1000);
   const swept = await db
     .update(appRuns)

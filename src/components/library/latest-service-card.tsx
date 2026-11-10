@@ -8,6 +8,7 @@ export interface LatestService {
   thumbnailUrl: string | null;
   publishedAt: string | null;
   ingestStatus: string;
+  captionsReady: boolean;
   project: { id: string; status: string } | null;
 }
 
@@ -26,7 +27,7 @@ function nextStepText(video: LatestService): string {
   if (status === "published") return "This post is on your website.";
   if (status === "approved") return "The post is approved and ready to publish.";
   if (status) return "The post is in progress. Pick up where you left off.";
-  if (video.ingestStatus === "captions_available")
+  if (video.captionsReady)
     return "The captions are ready. Turn this service into a blog post.";
   if (video.ingestStatus === "ingest_failed")
     return "We couldn't get the captions last time. Open it to try again.";
@@ -93,7 +94,7 @@ export function LatestServiceCard({
             <VideoActions
               videoId={video.id}
               workspaceSlug={workspaceSlug}
-              ingestStatus={video.ingestStatus}
+              captionsReady={video.captionsReady}
               project={video.project}
               canEdit={canEdit}
               size="large"

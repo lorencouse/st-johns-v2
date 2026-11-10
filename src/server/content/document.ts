@@ -1,4 +1,5 @@
-import { formatTimestamp, type Paragraph } from "@/server/ai/cleanup";
+import type { Paragraph } from "@/server/ai/cleanup";
+import { formatTimestamp } from "@/lib/format";
 import type { Section } from "@/server/ai/structure";
 
 /**
@@ -13,7 +14,7 @@ export interface DocBlock {
   timestamp: number | null;
 }
 
-export const HEADING_LEVEL = 2;
+const HEADING_LEVEL = 2;
 
 interface TiptapNode {
   type: string;

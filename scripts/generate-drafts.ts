@@ -36,7 +36,6 @@ import {
   contentProjects,
   draftVersions,
   exportArtifacts,
-  appRuns,
 } from "@/server/db/schema";
 import { and, eq, gt, inArray, desc, sql } from "drizzle-orm";
 import {
@@ -47,6 +46,7 @@ import { redoBlockReason } from "@/server/content/redo-guard";
 import { handleExportRender } from "@/server/jobs/handlers/export-render";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { createRun } from "@/server/jobs/runs";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -209,18 +209,14 @@ async function main() {
 
   async function generateOne(videoId: string) {
     // --- Draft (AI cleanup + structure + summary) ---
-    const [draftRun] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId: workspace.id,
-        kind: "project_generate",
-        status: "queued",
-        subjectType: "video",
-        subjectId: videoId,
-        triggeredByUserId: userId,
-        inputJson: { videoId },
-      })
-      .returning();
+    const draftRun = await createRun({
+      workspaceId: workspace.id,
+      kind: "project_generate",
+      subjectType: "source_video",
+      subjectId: videoId,
+      userId,
+      inputJson: { videoId },
+    });
 
     await handleDraftGenerate({
       workspaceId: workspace.id,
@@ -244,18 +240,14 @@ async function main() {
     if (!project?.activeDraftVersionId) throw new Error("Draft was not created");
 
     // --- Export (summary -> embed -> transcript) ---
-    const [exportRun] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId: workspace.id,
-        kind: "export_render",
-        status: "queued",
-        subjectType: "draft_version",
-        subjectId: project.activeDraftVersionId,
-        triggeredByUserId: userId,
-        inputJson: { format: "html" },
-      })
-      .returning();
+    const exportRun = await createRun({
+      workspaceId: workspace.id,
+      kind: "export_render",
+      subjectType: "content_project",
+      subjectId: project.id,
+      userId,
+      inputJson: { format: "html" },
+    });
 
     await handleExportRender({
       workspaceId: workspace.id,

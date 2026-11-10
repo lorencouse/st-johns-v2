@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatTimestampMs } from "@/lib/format";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Issue {
   id: string;
@@ -16,6 +18,8 @@ interface Issue {
 interface TranscriptIssuesProps {
   workspaceId: string;
   videoId: string;
+  /** Viewers see the issues but cannot flag or resolve them. */
+  canFlag: boolean;
 }
 
 const ISSUE_TYPES = [
@@ -26,20 +30,10 @@ const ISSUE_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-function formatMs(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSec / 3600);
-  const minutes = Math.floor((totalSec % 3600) / 60);
-  const secs = totalSec % 60;
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }
-  return `${minutes}:${secs.toString().padStart(2, "0")}`;
-}
-
 export function TranscriptIssues({
   workspaceId,
   videoId,
+  canFlag,
 }: TranscriptIssuesProps) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -110,18 +104,20 @@ export function TranscriptIssues({
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Issues ({openIssues.length})
-        </h3>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-xs text-blue-500 hover:text-blue-700"
-        >
-          {showForm ? "Cancel" : "Flag issue"}
-        </button>
+        </SectionLabel>
+        {canFlag && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="text-xs text-blue-500 hover:text-blue-700"
+          >
+            {showForm ? "Cancel" : "Flag issue"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {canFlag && showForm && (
         <form onSubmit={handleSubmit} className="space-y-2">
           <select
             value={issueType}
@@ -158,18 +154,20 @@ export function TranscriptIssues({
         >
           <div className="flex items-center justify-between">
             <span className="font-medium capitalize">{issue.issueType.replace("_", " ")}</span>
-            <button
-              onClick={() => handleResolve(issue.id)}
-              className="text-green-600 hover:text-green-800"
-            >
-              Resolve
-            </button>
+            {canFlag && (
+              <button
+                onClick={() => handleResolve(issue.id)}
+                className="text-green-600 hover:text-green-800"
+              >
+                Resolve
+              </button>
+            )}
           </div>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">{issue.note}</p>
           {issue.anchorStartMs != null && (
             <span className="mt-1 inline-block font-mono text-zinc-500 dark:text-zinc-400">
-              {formatMs(issue.anchorStartMs)}
-              {issue.anchorEndMs != null && ` – ${formatMs(issue.anchorEndMs)}`}
+              {formatTimestampMs(issue.anchorStartMs)}
+              {issue.anchorEndMs != null && ` – ${formatTimestampMs(issue.anchorEndMs)}`}
             </span>
           )}
           <div className="mt-1 text-zinc-500 dark:text-zinc-400">

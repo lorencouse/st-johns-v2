@@ -2,16 +2,17 @@ import { requireWorkspaceMember } from "@/lib/workspace";
 import { db } from "@/server/db";
 import {
   contentProjects,
-  serviceDocuments,
   sourceVideos,
   workspaceVideos,
   transcriptRevisions,
   transcriptSegments,
 } from "@/server/db/schema";
-import { and, count, eq, desc } from "drizzle-orm";
-import { hasTranscriptSql } from "@/server/db/transcript-availability";
+import { and, eq, desc } from "drizzle-orm";
+import { captionsReadySql } from "@/server/db/transcript-availability";
 import { notFound } from "next/navigation";
 import { TranscriptReviewClient } from "@/components/library/transcript-review-client";
+import { can } from "@/lib/permissions";
+import { countReadableDocuments } from "@/server/services/queries";
 
 export default async function TranscriptReviewPage({
   params,
@@ -21,15 +22,14 @@ export default async function TranscriptReviewPage({
   const { workspaceSlug, videoId } = await params;
   const { workspace, role } = await requireWorkspaceMember(workspaceSlug);
 
-  if (!["owner", "admin", "editor"].includes(role)) {
+  if (!can(role, "edit")) {
     notFound();
   }
 
   // Verify video belongs to workspace via junction table
   const [wsVideo] = await db
     .select({
-      ingestStatus: workspaceVideos.ingestStatus,
-      hasTranscript: hasTranscriptSql,
+      captionsReady: captionsReadySql,
     })
     .from(workspaceVideos)
     .where(
@@ -42,12 +42,7 @@ export default async function TranscriptReviewPage({
 
   // A stored transcript is enough to review, even if the ingest flag never
   // advanced past "discovered".
-  if (
-    !wsVideo ||
-    (wsVideo.ingestStatus !== "captions_available" && !wsVideo.hasTranscript)
-  ) {
-    notFound();
-  }
+  if (!wsVideo?.captionsReady) notFound();
 
   // Load video metadata
   const [video] = await db
@@ -124,16 +119,7 @@ export default async function TranscriptReviewPage({
   ]);
 
   // Documents with readable text feed the word check.
-  const [{ value: documentCount }] = await db
-    .select({ value: count() })
-    .from(serviceDocuments)
-    .where(
-      and(
-        eq(serviceDocuments.workspaceId, workspace.id),
-        eq(serviceDocuments.sourceVideoId, videoId),
-        eq(serviceDocuments.textStatus, "done")
-      )
-    );
+  const documentCount = await countReadableDocuments(workspace.id, videoId);
 
   return (
     <TranscriptReviewClient
@@ -142,7 +128,6 @@ export default async function TranscriptReviewPage({
       videoId={videoId}
       projectId={project?.id ?? null}
       videoTitle={video.title}
-      providerVideoId={videoId}
       rawSegments={rawSegments}
       editableSegments={editableSegments}
       documentCount={documentCount}

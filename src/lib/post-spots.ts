@@ -38,7 +38,7 @@ export function locateText(
 }
 
 /** Ids for the post's plain fields in a word check; body textblocks are `b<k>`, counted in document order. */
-export const POST_FIELD_IDS = ["title", "intro", "summary"] as const;
+const POST_FIELD_IDS = ["title", "intro", "summary"] as const;
 export type PostFieldId = (typeof POST_FIELD_IDS)[number];
 
 export function isPostField(id: string): id is PostFieldId {

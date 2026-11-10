@@ -25,6 +25,7 @@ import {
 } from "@/server/db/schema";
 import { and, eq, sql, desc } from "drizzle-orm";
 import { handleVideoIngest } from "@/server/jobs/handlers/video-ingest";
+import { createRun } from "@/server/jobs/runs";
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -109,18 +110,14 @@ async function main() {
   for (const [i, v] of queue.entries()) {
     const label = `[${i + 1}/${queue.length}] ${v.title.slice(0, 56)}`;
     const started = Date.now();
-    const [run] = await db
-      .insert(appRuns)
-      .values({
-        workspaceId: workspace.id,
-        kind: "video_ingest",
-        status: "queued",
-        subjectType: "video",
-        subjectId: v.id,
-        triggeredByUserId: user.id,
-        inputJson: { videoId: v.id },
-      })
-      .returning();
+    const run = await createRun({
+      workspaceId: workspace.id,
+      kind: "video_ingest",
+      subjectType: "source_video",
+      subjectId: v.id,
+      userId: user.id,
+      inputJson: { videoId: v.id },
+    });
 
     try {
       await handleVideoIngest({

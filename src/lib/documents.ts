@@ -3,7 +3,7 @@
  * Shared by the upload form and the upload route so both agree.
  */
 
-export const DOCUMENT_KINDS = ["sermon", "bulletin", "other"] as const;
+const DOCUMENT_KINDS = ["sermon", "bulletin", "other"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
@@ -13,7 +13,7 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
 };
 
 /** 10 MB: enough for a long scanned bulletin or a phone photo. */
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 /** How many files one service can hold, so a slip of the finger can't flood it. */
 export const MAX_DOCUMENTS_PER_SERVICE = 10;

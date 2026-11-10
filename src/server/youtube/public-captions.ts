@@ -25,7 +25,7 @@ export interface PublicCaptionResult {
 }
 
 /** Thrown when the video simply has no usable English caption track. */
-export class NoCaptionsError extends Error {
+class NoCaptionsError extends Error {
   constructor(videoId: string) {
     super(`No English caption track available for ${videoId}`);
     this.name = "NoCaptionsError";
@@ -102,9 +102,8 @@ function pickBestFile(files: string[]): { file: string; lang: string } | null {
 /**
  * Fetch captions for any PUBLIC YouTube video using yt-dlp.
  *
- * Unlike `fetchCaptions` in ./api.ts — which calls the YouTube Data API's
- * captions.download endpoint and therefore only works for videos on a
- * channel the OAuth user owns — this works for any public video. That is
+ * The YouTube Data API's captions.download endpoint only works for videos on
+ * a channel the OAuth user owns; this works for any public video. That is
  * what we need for channels we do not administer.
  *
  * Prefers human-uploaded captions, falling back to YouTube's ASR track.

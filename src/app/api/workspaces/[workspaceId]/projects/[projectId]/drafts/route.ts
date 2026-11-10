@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiWorkspaceMember } from "@/lib/api-helpers";
+import { requireApiWorkspaceRole } from "@/lib/api-helpers";
 import { db } from "@/server/db";
 import { draftVersions, contentProjects } from "@/server/db/schema";
 import { and, eq, sql } from "drizzle-orm";
@@ -13,12 +13,8 @@ export async function PATCH(
   }: { params: Promise<{ workspaceId: string; projectId: string }> }
 ) {
   const { workspaceId, projectId } = await params;
-  const ctx = await requireApiWorkspaceMember(workspaceId);
+  const ctx = await requireApiWorkspaceRole(workspaceId, "edit");
   if ("error" in ctx) return ctx.error;
-
-  if (!["owner", "admin", "editor"].includes(ctx.role)) {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-  }
 
   const body = await req.json();
   const { draftVersionId, contentJson, plainText, intro, summary, title } = body;
