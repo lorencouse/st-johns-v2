@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { copyArtifactToClipboard } from "@/lib/clipboard";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface ExportArtifact {
   id: string;
@@ -74,9 +75,9 @@ export function ExportPanel({ workspaceId, projectId }: ExportPanelProps) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+      <SectionLabel>
         Exports ({artifacts.length})
-      </h3>
+      </SectionLabel>
       {artifacts.map((artifact) => (
         <div
           key={artifact.id}

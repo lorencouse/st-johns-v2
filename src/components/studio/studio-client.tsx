@@ -28,6 +28,7 @@ import {
   type TextRun,
 } from "@/lib/post-spots";
 import { can } from "@/lib/permissions";
+import { SectionLabel } from "@/components/ui/section-label";
 
 type DocNode = Editor["state"]["doc"];
 
@@ -326,9 +327,9 @@ export function StudioClient({
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       {/* Left rail - transcript. On phones it moves below the post. */}
       <div className="order-3 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-r dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Video
-        </h3>
+        </SectionLabel>
         <p className="mt-1 text-sm font-medium">{videoTitle}</p>
 
         {videoId && (
@@ -343,9 +344,9 @@ export function StudioClient({
         )}
 
         <div className="mt-4">
-          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+          <SectionLabel>
             Transcript
-          </h3>
+          </SectionLabel>
           <div className="mt-2 max-h-64 overflow-y-auto lg:max-h-[calc(100vh-500px)]">
             <TranscriptPanel segments={transcriptSegments} />
           </div>
@@ -415,9 +416,9 @@ export function StudioClient({
             <div className="mt-6 space-y-6">
               {/* Intro */}
               <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <h3 className="text-xs font-semibold uppercase text-blue-600 dark:text-blue-400">
+                <SectionLabel tone="accent">
                   Introduction
-                </h3>
+                </SectionLabel>
                 <AutoTextarea
                   value={intro}
                   fieldId="intro"
@@ -433,9 +434,9 @@ export function StudioClient({
 
               {/* Summary */}
               <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
-                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                <SectionLabel>
                   Summary
-                </h3>
+                </SectionLabel>
                 <AutoTextarea
                   value={summary}
                   fieldId="summary"
@@ -455,9 +456,9 @@ export function StudioClient({
                 readers will see above the transcript.
               */}
               <div className="rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
-                <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                <SectionLabel>
                   Transcript notice (added on export)
-                </h3>
+                </SectionLabel>
                 <p className="mt-1 text-sm italic text-zinc-500">
                   {TRANSCRIPT_DISCLAIMER}
                 </p>
@@ -529,9 +530,9 @@ export function StudioClient({
 
       {/* Right panel - actions */}
       <div className="order-2 shrink-0 border-t border-zinc-200 p-4 lg:order-none lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l dark:border-zinc-800">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Details
-        </h3>
+        </SectionLabel>
         <dl className="mt-3 space-y-3 text-sm">
           <div>
             <dt className="text-zinc-500 dark:text-zinc-400">Status</dt>
@@ -547,9 +548,9 @@ export function StudioClient({
 
         {/* Review Actions */}
         <div className="mt-6 space-y-2">
-          <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+          <SectionLabel>
             Approval (optional)
-          </h3>
+          </SectionLabel>
 
           {canEdit && projectStatus === "drafting" && draft && (
             <button
@@ -584,9 +585,9 @@ export function StudioClient({
         {/* Export Actions */}
         {draft && (
           <div id="publish" className="mt-6 scroll-mt-4 space-y-2">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               Publish
-            </h3>
+            </SectionLabel>
             <Link
               href={`/w/${workspaceSlug}/services/${videoId}/publish`}
               onClick={handlePublishClick}
@@ -599,9 +600,9 @@ export function StudioClient({
 
             {canContribute && (
               <>
-                <h3 className="pt-3 text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+                <SectionLabel className="pt-3">
                   Download a file
-                </h3>
+                </SectionLabel>
                 <button
                   onClick={() => handleExport("html")}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"

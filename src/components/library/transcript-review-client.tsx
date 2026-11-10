@@ -21,6 +21,7 @@ import { serviceStepHref } from "@/lib/service-steps";
 import { applySpot } from "@/lib/word-spots";
 import { WordCheckPanel, type Spot } from "@/components/service/word-check-panel";
 import { useWordCheck } from "@/components/service/use-word-check";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Segment {
   seq: number;
@@ -534,9 +535,9 @@ export function TranscriptReviewClient({
           className={`${mobilePane === "youtube" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2 md:border-r md:border-zinc-200 md:dark:border-zinc-800`}
         >
           <div className="border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               From YouTube ({visibleRaw.length} lines)
-            </h3>
+            </SectionLabel>
           </div>
           <div
             ref={originalPaneRef}
@@ -570,9 +571,9 @@ export function TranscriptReviewClient({
           className={`${mobilePane === "edit" ? "flex" : "hidden"} w-full flex-col md:flex md:w-1/2`}
         >
           <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+            <SectionLabel>
               Your version ({visibleBlocks.length} paragraphs)
-            </h3>
+            </SectionLabel>
             <button
               onClick={handleUndo}
               disabled={!canUndo}

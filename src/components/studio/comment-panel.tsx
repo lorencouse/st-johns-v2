@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Comment {
   id: string;
@@ -132,9 +133,9 @@ export function CommentPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Comments ({openThreads.length})
-        </h3>
+        </SectionLabel>
         {resolvedThreads.length > 0 && (
           <button
             onClick={() => setShowResolved(!showResolved)}

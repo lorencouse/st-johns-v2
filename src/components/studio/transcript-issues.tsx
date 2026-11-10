@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatTimestampMs } from "@/lib/format";
+import { SectionLabel } from "@/components/ui/section-label";
 
 interface Issue {
   id: string;
@@ -103,9 +104,9 @@ export function TranscriptIssues({
   return (
     <div className="mt-4 space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400">
+        <SectionLabel>
           Issues ({openIssues.length})
-        </h3>
+        </SectionLabel>
         {canFlag && (
           <button
             onClick={() => setShowForm(!showForm)}

@@ -11,7 +11,8 @@ import {
   type DocumentKind,
 } from "@/lib/documents";
 import { serviceStepHref } from "@/lib/service-steps";
-import { ServiceSteps } from "./service-steps";
+import { ServiceStepFrame } from "./service-step-frame";
+import { buttonStepBack, buttonStepPrimary } from "@/components/ui/button";
 
 interface UploadedDocument {
   id: string;
@@ -211,64 +212,48 @@ export function DocumentsClient({
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 p-4 sm:p-6">
-        <ServiceSteps
-          workspaceSlug={workspaceSlug}
-          videoId={videoId}
-          projectId={projectId}
-          canEdit
-          current="documents"
-        />
-
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">
-            Add the sermon and bulletin
-          </h1>
-          <p className="text-pretty text-zinc-600 dark:text-zinc-300">
-            {projectId
-              ? "The post is already written. Add the files here, then go back to the post and press Check against the documents to fix names, Bible verses and hymn titles. These files are never published."
-              : "Optional, but it helps the post get names, Bible verses and hymn titles right. These files are never published."}
-          </p>
-          <p className="truncate text-sm text-zinc-500">{videoTitle}</p>
-        </div>
-
-        {!storageReady && (
-          <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-            Document upload isn&apos;t switched on for this site yet. You can
-            skip this step for now.
-          </p>
-        )}
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {SLOTS.map((s) => slot(s.kind, s.hint))}
-        </div>
-        {slot("other", "Anything else that helps, like a list of readings")}
-
-        <p aria-live="polite" className="min-h-6 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      </div>
-
-      <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 p-4 sm:px-6">
+    <ServiceStepFrame
+      steps={{ workspaceSlug, videoId, projectId, canEdit: true, current: "documents" }}
+      title="Add the sermon and bulletin"
+      description={
+        projectId
+          ? "The post is already written. Add the files here, then go back to the post and press Check against the documents to fix names, Bible verses and hymn titles. These files are never published."
+          : "Optional, but it helps the post get names, Bible verses and hymn titles right. These files are never published."
+      }
+      subtitle={videoTitle}
+      footer={
+        <>
           <Link
             href={`/w/${workspaceSlug}/services/${videoId}`}
-            className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            className={buttonStepBack}
           >
             Back
           </Link>
           <Link
             href={nextHref}
             aria-disabled={!!uploading}
-            className={`inline-flex min-h-12 flex-1 items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-6 text-base font-semibold text-white hover:bg-blue-700 sm:flex-none ${
-              uploading ? "pointer-events-none opacity-50" : ""
-            }`}
+            className={`${buttonStepPrimary} ${uploading ? "pointer-events-none opacity-50" : ""}`}
           >
             {projectId ? "Back to the post" : documents.length > 0 ? "Continue" : "Skip for now"}
           </Link>
-        </div>
+        </>
+      }
+    >
+      {!storageReady && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+          Document upload isn&apos;t switched on for this site yet. You can
+          skip this step for now.
+        </p>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {SLOTS.map((s) => slot(s.kind, s.hint))}
       </div>
-    </div>
+      {slot("other", "Anything else that helps, like a list of readings")}
+
+      <p aria-live="polite" className="min-h-6 text-sm text-red-600 dark:text-red-400">
+        {error}
+      </p>
+    </ServiceStepFrame>
   );
 }
