@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { X } from "lucide-react";
 import { TiptapEditor } from "./tiptap-editor";
 import { useDraftAutosave } from "./use-draft-autosave";
 import { TranscriptPanel } from "./transcript-panel";
@@ -112,7 +113,14 @@ export function StudioClient({
     setSummary(draft?.summary ?? "");
   }, [draft?.id, draft?.title, draft?.intro, draft?.summary, projectTitle]);
 
-  const { saving, saveFailed, queue: queueSave, isDirty, flush: flushSaves } = useDraftAutosave({
+  const {
+    saving,
+    saveFailed,
+    queue: queueSave,
+    flush: flushSaves,
+    leaveState,
+    dismissLeave,
+  } = useDraftAutosave({
     workspaceId,
     projectId,
     draftId: draft?.id ?? null,
@@ -231,15 +239,9 @@ export function StudioClient({
     [queueSave]
   );
 
+  // The publish page reads the saved post as it loads; useDraftAutosave holds
+  // this link, and every other one, until edits on their way have saved.
   const publishHref = `/w/${workspaceSlug}/services/${videoId}/publish`;
-
-  // The publish page reads the saved post as it loads, so it waits for edits
-  // that are still on their way.
-  function handlePublishClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || !isDirty()) return;
-    e.preventDefault();
-    void flushSaves().finally(() => router.push(publishHref));
-  }
 
   async function handleExport(format: "html" | "markdown") {
     setError("");
@@ -591,8 +593,7 @@ export function StudioClient({
             </SectionLabel>
             <Link
               href={publishHref}
-              onClick={handlePublishClick}
-              className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
+                className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Publish to Squarespace
             </Link>
@@ -637,12 +638,36 @@ export function StudioClient({
         </div>
       </div>
     </div>
+      {leaveState !== "idle" && (
+        <div
+          role={leaveState === "failed" ? "alert" : "status"}
+          className="fixed inset-x-4 bottom-20 z-20 flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3 text-sm shadow-lg lg:inset-x-auto lg:right-6 lg:bottom-6 lg:max-w-sm dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          {leaveState === "saving" ? (
+            <p className="min-w-0 flex-1 py-3 text-pretty">Saving your edits before you go...</p>
+          ) : (
+            <>
+              <p className="min-w-0 flex-1 py-3 text-pretty text-red-600">
+                Your latest edits did not save, so you are still here. Check your
+                connection and try again.
+              </p>
+              <button
+                type="button"
+                onClick={dismissLeave}
+                aria-label="Dismiss"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {/* Phones: the next step stays in reach while editing */}
       {draft && (
         <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
           <Link
             href={publishHref}
-            onClick={handlePublishClick}
             className="flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Publish to Squarespace
