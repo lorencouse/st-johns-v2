@@ -407,7 +407,7 @@ export function StudioClient({
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">Saving...</span>
               )}
               {!saving && saveFailed && (
-                <span className="text-xs font-medium text-red-600">
+                <span className="text-xs font-medium text-red-600 dark:text-red-400">
                   Save failed. Check your connection; edits retry on your next
                   change.
                 </span>
@@ -647,7 +647,7 @@ export function StudioClient({
             <p className="min-w-0 flex-1 py-3 text-pretty">Saving your edits before you go...</p>
           ) : (
             <>
-              <p className="min-w-0 flex-1 py-3 text-pretty text-red-600">
+              <p className="min-w-0 flex-1 py-3 text-pretty text-red-600 dark:text-red-400">
                 Your latest edits did not save, so you are still here. Check your
                 connection and try again.
               </p>

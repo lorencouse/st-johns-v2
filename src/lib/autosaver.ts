@@ -8,8 +8,16 @@ export interface SaveOptions {
   unloading: boolean;
 }
 
+export interface SaveRequest extends SaveOptions {
+  /**
+   * Goes up by one with each request, so the server can skip a request that
+   * arrives after a later one (see `src/lib/save-order.ts`).
+   */
+  seq: number;
+}
+
 /** Sends the fields and resolves to whether they were saved. */
-export type SaveFields = (fields: Fields, options: SaveOptions) => Promise<boolean>;
+export type SaveFields = (fields: Fields, request: SaveRequest) => Promise<boolean>;
 
 /**
  * Debounces saves without losing any: every field changed during the wait goes
@@ -20,7 +28,8 @@ export type SaveFields = (fields: Fields, options: SaveOptions) => Promise<boole
  * one. The exception is a page that is unloading: then everything not yet
  * saved, including what is still in flight, goes out at once in a request that
  * can outlive the page. A failed save only puts back the fields no later save
- * has sent.
+ * has sent. Each request carries a number that goes up, so the server can skip
+ * an older request that lands after the one sent on unload.
  */
 export function createAutosaver(save: SaveFields, delayMs: number) {
   let pending: FieldSource[] = [];
@@ -56,7 +65,7 @@ export function createAutosaver(save: SaveFields, delayMs: number) {
     const id = ++seq;
     for (const key of Object.keys(fields)) lastSent.set(key, id);
 
-    const request: Promise<void> = save(fields, options)
+    const request: Promise<void> = save(fields, { ...options, seq: id })
       .catch(() => false)
       .then((saved) => {
         if (saved) return;
