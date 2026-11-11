@@ -57,8 +57,18 @@ export function useDraftAutosave({
   useEffect(() => {
     if (!draftId || !enabled) return;
 
-    const save: SaveFields = async (fields, { unloading }) => {
-      const body = JSON.stringify({ draftVersionId: draftId, ...fields });
+    // Numbers this page's saves, so the server can skip one that arrives late.
+    // randomUUID needs a secure context, which a plain-http dev host is not.
+    const session =
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const save: SaveFields = async (fields, { unloading, seq }) => {
+      const body = JSON.stringify({
+        draftVersionId: draftId,
+        ...fields,
+        saveStamp: { session, seq },
+      });
       setSaving(true);
       try {
         const res = await fetch(

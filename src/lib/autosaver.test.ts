@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createAutosaver, type Fields, type SaveOptions } from "./autosaver";
+import { createAutosaver, type Fields, type SaveRequest } from "./autosaver";
 
 function recorder(result = true) {
-  const calls: Array<{ fields: Fields; options: SaveOptions }> = [];
-  const save = async (fields: Fields, options: SaveOptions) => {
+  const calls: Array<{ fields: Fields; options: SaveRequest }> = [];
+  const save = async (fields: Fields, options: SaveRequest) => {
     calls.push({ fields, options });
     return result;
   };
@@ -61,7 +61,7 @@ describe("createAutosaver", () => {
     const saver = createAutosaver(save, 1000);
     saver.queue({ title: "A" });
     await saver.flush({ unloading: true });
-    expect(calls[0].options).toEqual({ unloading: true });
+    expect(calls[0].options).toMatchObject({ unloading: true });
   });
 
   test("a failed save is kept for the next change", async () => {
@@ -109,8 +109,8 @@ describe("createAutosaver", () => {
 /** A server that applies each save's fields when its response is given. */
 function slowServer() {
   const state: Fields = {};
-  const requests: Array<{ fields: Fields; options: SaveOptions; answer: (ok: boolean) => void }> = [];
-  const save = (fields: Fields, options: SaveOptions) =>
+  const requests: Array<{ fields: Fields; options: SaveRequest; answer: (ok: boolean) => void }> = [];
+  const save = (fields: Fields, options: SaveRequest) =>
     new Promise<boolean>((resolve) => {
       requests.push({
         fields,
@@ -188,7 +188,7 @@ describe("createAutosaver ordering", () => {
     saver.queue({ body: "v2" });
     const leaving = saver.flush({ unloading: true });
     expect(server.requests[1].fields).toEqual({ body: "v2", title: "A" });
-    expect(server.requests[1].options).toEqual({ unloading: true });
+    expect(server.requests[1].options).toEqual({ unloading: true, seq: 2 });
     server.requests[1].answer(true);
     server.requests[0].answer(false);
     expect(await leaving).toBe(true);
